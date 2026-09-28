@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vanteam BSL Check</title>
+<meta name="description" content="A two-level checker for 1C:Enterprise (BSL) modules: OneScript syntax pass and BSL Language Server analysis, with exit codes you can trust.">
+<meta property="og:title" content="Vanteam BSL Check">
+<meta property="og:description" content="A two-level checker for 1C:Enterprise (BSL) modules: OneScript syntax pass and BSL Language Server analysis, with exit codes you can trust.">
+<meta property="og:image" content="https://ivanbokhan84.github.io/vanteam-bsl-check/cover.png">
+<meta property="og:url" content="https://ivanbokhan84.github.io/vanteam-bsl-check/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+:root {
+  --ground: #f2f4f7; --surface: #ffffff; --raised: #f7f8fa; --ink: #141b24; --muted: #566270; --faint: #8a95a2;
+  --line: #d9dee5; --grid: #e8ebef; --accent: #b4461b; --s1: #2a78d6; --s2: #eb6834;
+  --good: #0f8a3c; --good-soft: #e2f4e8; --bad: #c53030; --bad-soft: #fbe7e7; --mark: #ffe08a; --mark-ink: #3b2a00;
+  --code: #f5f6f8;
+  --sans: "Golos Text", "Segoe UI", system-ui, sans-serif; --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0e1318; --surface: #161c23; --raised: #1b222a; --ink: #e4e9ef; --muted: #9ba7b4; --faint: #6e7a88;
+    --line: #28313c; --grid: #222a33; --accent: #e3905f; --s1: #3987e5; --s2: #d95926;
+    --good: #4cc47a; --good-soft: #15301f; --bad: #f07a72; --bad-soft: #3a1c1c; --mark: #6b5310; --mark-ink: #fff3cf;
+    --code: #121820;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0e1318; --surface: #161c23; --raised: #1b222a; --ink: #e4e9ef; --muted: #9ba7b4; --faint: #6e7a88;
+  --line: #28313c; --grid: #222a33; --accent: #e3905f; --s1: #3987e5; --s2: #d95926;
+  --good: #4cc47a; --good-soft: #15301f; --bad: #f07a72; --bad-soft: #3a1c1c; --mark: #6b5310; --mark-ink: #fff3cf;
+  --code: #121820;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--ground); color: var(--ink); font: 16px/1.6 var(--sans); }
+code, pre, .mono { font-family: var(--mono); font-variant-ligatures: none; }
+a { color: var(--s1); }
+
+/* Cover: one deliberate dark look, the same in both themes and in the PNG */
+.hero { --h-ground: #10161d; --h-panel: #172029; --h-ink: #eef2f6; --h-muted: #9fb0c0; --h-line: #2a3642;
+  --h-s1: #3987e5; --h-s2: #d95926; --h-accent: #f0a06c; --h-good: #4cc47a; --h-bad: #f07a72;
+  background: radial-gradient(1200px 600px at 85% 20%, #1c2a38 0%, var(--h-ground) 60%); color: var(--h-ink);
+  width: 100%; max-width: 1280px; margin: 0 auto; aspect-ratio: 2 / 1; padding: 56px 60px 48px;
+  display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: stretch; overflow: hidden; position: relative; }
+.hero::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(var(--h-line) 1px, transparent 1px), linear-gradient(90deg, var(--h-line) 1px, transparent 1px);
+  background-size: 40px 40px; opacity: .18; mask-image: linear-gradient(90deg, transparent 0%, #000 55%, transparent 100%); }
+.hero > * { position: relative; z-index: 1; }
+.hero .left { display: grid; align-content: space-between; gap: 22px; min-width: 0; }
+.kicker { font: 600 13px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--h-accent); }
+.hero h1 { margin: 14px 0 0; font: 800 50px/1.04 var(--sans); letter-spacing: -.025em; text-wrap: balance; }
+.hero h1 .code { font: 700 .86em var(--mono); color: var(--h-accent); }
+.hero .tag { margin: 16px 0 0; color: var(--h-muted); font-size: 19px; line-height: 1.45; max-width: 34ch; }
+.hero .snippet { font: 15px/1.6 var(--mono); background: rgba(0,0,0,.28); border: 1px solid var(--h-line); border-radius: 10px;
+  padding: 12px 16px; white-space: pre; overflow: hidden; }
+.hero .snippet .dir { color: var(--h-accent); font-weight: 700; }
+.hero .snippet mark { background: #7a5b0e; color: #fff3cf; border-radius: 3px; padding: 0 2px; }
+.hero .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.hero .stat { border-top: 2px solid var(--h-line); padding-top: 10px; display: grid; gap: 4px; }
+.hero .stat b { font: 800 30px/1.05 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.hero .stat span { color: var(--h-muted); font-size: 13.5px; line-height: 1.35; }
+.hero .right { background: var(--h-panel); border: 1px solid var(--h-line); border-radius: 16px; padding: 24px 26px 18px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 10px; min-width: 0; }
+.hero .right h2 { margin: 0; font: 700 17px/1.3 var(--sans); }
+.hero .right .sub { color: var(--h-muted); font-size: 13px; margin-top: 2px; }
+.hero .right svg { width: 100%; height: 100%; }
+.hero .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--h-muted); }
+.hero .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 600 13px/1 var(--mono); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--h-line); background: rgba(255,255,255,.03); }
+.chip b { color: var(--h-accent); margin-right: 6px; }
+.hero code { font-family: var(--mono); background: rgba(255,255,255,.08); border: 1px solid var(--h-line); border-radius: 5px; padding: 0 5px; color: var(--h-ink); font-size: .9em; }
+
+.page { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 48px 72px; display: grid; gap: 56px; }
+section { display: grid; gap: 18px; }
+.head { display: grid; gap: 6px; max-width: 76ch; }
+.eyebrow { font: 600 12px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h2.t { margin: 0; font: 750 28px/1.2 var(--sans); letter-spacing: -.01em; text-wrap: balance; }
+.head p { margin: 0; color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 18px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.card h3 { margin: 0; font: 650 17px/1.3 var(--sans); }
+.card .note { color: var(--muted); font-size: 14px; margin: 0; }
+.chart { overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; min-width: 440px; }
+.chart text { font-family: var(--sans); }
+.legend2 { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13.5px; color: var(--muted); }
+.legend2 i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+details { font-size: 14px; color: var(--muted); }
+details summary { cursor: pointer; }
+details table { margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.tbl table td:first-child { white-space: nowrap; }
+pre.block { margin: 0; background: var(--code); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.6; }
+pre.block .add { display: block; background: var(--good-soft); margin-inline: -16px; padding-inline: 16px; }
+pre.block .del { display: block; background: var(--bad-soft); margin-inline: -16px; padding-inline: 16px; }
+p code, td code, li code { font-size: .88em; background: var(--code); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+mark { background: var(--mark); color: var(--mark-ink); border-radius: 3px; padding: 0 1px; }
+.pill { display: inline-flex; gap: 5px; align-items: center; font: 600 12.5px/1 var(--sans); padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.good { color: var(--good); background: var(--good-soft); }
+.pill.bad { color: var(--bad); background: var(--bad-soft); }
+.links { display: flex; flex-wrap: wrap; gap: 10px; }
+.links a { text-decoration: none; font-weight: 600; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.links a:hover, .links a:focus-visible { border-color: var(--s1); outline: none; }
+footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+.matrix { overflow-x: auto; }
+.matrix table { min-width: 720px; }
+.matrix td.c { text-align: center; }
+.cell { display: inline-grid; place-items: center; width: 30px; height: 26px; border-radius: 6px; font: 700 13px/1 var(--mono); }
+.cell.ok { color: var(--good); background: var(--good-soft); }
+.cell.er { color: var(--bad); background: var(--bad-soft); }
+.cell.miss { box-shadow: 0 0 0 2px var(--bad); }
+.tape { overflow-x: auto; }
+.tape table { width: auto; border-collapse: separate; border-spacing: 3px 4px; font: 14px/1 var(--mono); }
+.tape td { padding: 6px 0; width: 28px; text-align: center; border: 0; }
+.tape td.lbl { width: auto; padding-right: 12px; font: 13px/1.2 var(--sans); color: var(--muted); text-align: left; white-space: nowrap; }
+.tape td.ch { background: var(--raised); border-radius: 5px; }
+.tape td.hash { background: var(--mark); color: var(--mark-ink); font-weight: 700; }
+.tape .on { color: var(--bad); } .tape .on.g { color: var(--good); } .tape .off { color: var(--faint); }
+.flow { overflow-x: auto; }
+.flow svg { min-width: 760px; }
+@media (max-width: 900px) {
+  .hero { aspect-ratio: auto; grid-template-columns: 1fr; padding: 32px 22px; gap: 26px; }
+  .hero h1 { font-size: 36px; }
+  .hero .stats { grid-template-columns: 1fr; }
+  .hero .right { min-height: 320px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="hero" id="cover">
+  <div class="left">
+    <div>
+      <div class="kicker">Python · MIT · OneScript + BSL Language Server</div>
+      <h1>Vanteam BSL Check</h1>
+      <p class="tag">A two-level checker for 1C:Enterprise modules that never reports success for an analysis that did not happen.</p>
+    </div>
+    <div class="chips">
+      <span class="chip"><b>0</b>clean</span><span class="chip"><b>1</b>warnings</span><span class="chip"><b>2</b>errors</span><span class="chip"><b>3</b>not completed</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>43 / 43</b><span>tests pass in 1.0.0, four of them on real Java, BSL LS, OneScript and Git</span></div>
+      <div class="stat"><b>56 / 56</b><span>tests pass in the 1.1.0 release candidate, eleven integration</span></div>
+      <div class="stat"><b>×0.41–0.44</b><span>CPU time with the tuned JVM, identical diagnostics</span></div>
+    </div>
+  </div>
+  <div class="right">
+    <div><h2>CPU seconds per check</h2><div class="sub">BSL Language Server 1.0.7, median of 5 paired runs</div></div>
+    <svg viewBox="0 0 520 262" role="img" aria-label="CPU seconds per check on BSL LS 1.0.7: default JVM versus tuned JVM" xmlns="http://www.w3.org/2000/svg"><line x1="130.0" y1="8" x2="130.0" y2="232" stroke="var(--h-line)" stroke-width="1"/><text x="130.0" y="248" text-anchor="middle" font-size="12" fill="var(--h-muted)">0 s</text><line x1="213.5" y1="8" x2="213.5" y2="232" stroke="var(--h-line)" stroke-width="1"/><text x="213.5" y="248" text-anchor="middle" font-size="12" fill="var(--h-muted)">35 s</text><line x1="297.0" y1="8" x2="297.0" y2="232" stroke="var(--h-line)" stroke-width="1"/><text x="297.0" y="248" text-anchor="middle" font-size="12" fill="var(--h-muted)">70 s</text><line x1="380.5" y1="8" x2="380.5" y2="232" stroke="var(--h-line)" stroke-width="1"/><text x="380.5" y="248" text-anchor="middle" font-size="12" fill="var(--h-muted)">105 s</text><line x1="464.0" y1="8" x2="464.0" y2="232" stroke="var(--h-line)" stroke-width="1"/><text x="464.0" y="248" text-anchor="middle" font-size="12" fill="var(--h-muted)">140 s</text><text x="118" y="34.0" text-anchor="end" font-size="13.5" fill="var(--h-ink)">Small module</text><line x1="403.7" y1="30.0" x2="246.0" y2="30.0" stroke="var(--h-muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="403.7" cy="30.0" r="6.5" fill="var(--h-s1)" stroke="var(--h-panel)" stroke-width="2"><title>Small module — before: 115 s</title></circle><circle cx="246.0" cy="30.0" r="6.5" fill="var(--h-s2)" stroke="var(--h-panel)" stroke-width="2"><title>Small module — after: 49 s</title></circle><text x="236.0" y="34.0" text-anchor="end" font-size="12" fill="var(--h-muted)">49</text><text x="413.7" y="34.0" font-size="12" font-weight="600" fill="var(--h-ink)">115</text><text x="118" y="70.0" text-anchor="end" font-size="13.5" fill="var(--h-ink)">Medium module</text><line x1="383.6" y1="66.0" x2="232.2" y2="66.0" stroke="var(--h-muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="383.6" cy="66.0" r="6.5" fill="var(--h-s1)" stroke="var(--h-panel)" stroke-width="2"><title>Medium module — before: 106 s</title></circle><circle cx="232.2" cy="66.0" r="6.5" fill="var(--h-s2)" stroke="var(--h-panel)" stroke-width="2"><title>Medium module — after: 43 s</title></circle><text x="222.2" y="70.0" text-anchor="end" font-size="12" fill="var(--h-muted)">43</text><text x="393.6" y="70.0" font-size="12" font-weight="600" fill="var(--h-ink)">106</text><text x="118" y="106.0" text-anchor="end" font-size="13.5" fill="var(--h-ink)">Large module</text><line x1="395.7" y1="102.0" x2="239.9" y2="102.0" stroke="var(--h-muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="395.7" cy="102.0" r="6.5" fill="var(--h-s1)" stroke="var(--h-panel)" stroke-width="2"><title>Large module — before: 111 s</title></circle><circle cx="239.9" cy="102.0" r="6.5" fill="var(--h-s2)" stroke="var(--h-panel)" stroke-width="2"><title>Large module — after: 46 s</title></circle><text x="229.9" y="106.0" text-anchor="end" font-size="12" fill="var(--h-muted)">46</text><text x="405.7" y="106.0" font-size="12" font-weight="600" fill="var(--h-ink)">111</text><text x="118" y="142.0" text-anchor="end" font-size="13.5" fill="var(--h-ink)">Form module</text><line x1="448.5" y1="138.0" x2="274.5" y2="138.0" stroke="var(--h-muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="448.5" cy="138.0" r="6.5" fill="var(--h-s1)" stroke="var(--h-panel)" stroke-width="2"><title>Form module — before: 134 s</title></circle><circle cx="274.5" cy="138.0" r="6.5" fill="var(--h-s2)" stroke="var(--h-panel)" stroke-width="2"><title>Form module — after: 61 s</title></circle><text x="264.5" y="142.0" text-anchor="end" font-size="12" fill="var(--h-muted)">61</text><text x="458.5" y="142.0" font-size="12" font-weight="600" fill="var(--h-ink)">134</text><text x="118" y="178.0" text-anchor="end" font-size="13.5" fill="var(--h-ink)">Five modules</text><line x1="377.7" y1="174.0" x2="237.4" y2="174.0" stroke="var(--h-muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="377.7" cy="174.0" r="6.5" fill="var(--h-s1)" stroke="var(--h-panel)" stroke-width="2"><title>Five modules — before: 104 s</title></circle><circle cx="237.4" cy="174.0" r="6.5" fill="var(--h-s2)" stroke="var(--h-panel)" stroke-width="2"><title>Five modules — after: 45 s</title></circle><text x="227.4" y="178.0" text-anchor="end" font-size="12" fill="var(--h-muted)">45</text><text x="387.7" y="178.0" font-size="12" font-weight="600" fill="var(--h-ink)">104</text><text x="118" y="214.0" text-anchor="end" font-size="13.5" fill="var(--h-ink)">Cross-module</text><line x1="363.9" y1="210.0" x2="230.2" y2="210.0" stroke="var(--h-muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="363.9" cy="210.0" r="6.5" fill="var(--h-s1)" stroke="var(--h-panel)" stroke-width="2"><title>Cross-module — before: 98 s</title></circle><circle cx="230.2" cy="210.0" r="6.5" fill="var(--h-s2)" stroke="var(--h-panel)" stroke-width="2"><title>Cross-module — after: 42 s</title></circle><text x="220.2" y="214.0" text-anchor="end" font-size="12" fill="var(--h-muted)">42</text><text x="373.9" y="214.0" font-size="12" font-weight="600" fill="var(--h-ink)">98</text></svg>
+    <div class="legend"><span><i style="background:var(--h-s1)"></i>default JVM</span><span><i style="background:var(--h-s2)"></i>tuned JVM</span></div>
+  </div>
+</header>
+<main class="page">
+
+<section>
+  <div class="head"><div class="eyebrow">How it decides</div><h2 class="t">Exit code 3 is a first-class result</h2>
+  <p>Both engines can fail quietly: a missing report, a module that is not in the report, a crashed rule, an engine that skipped metadata and still exited with 0. The wrapper checks that the analysis really happened before it looks at findings.</p></div>
+  <div class="card flow"><svg viewBox="0 0 980 300" role="img" aria-label="How check_bsl.py turns engine results into exit codes" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>
+<g font-family="var(--sans)" font-size="14">
+<rect x="10" y="20" width="250" height="260" rx="12" fill="var(--raised)" stroke="var(--line)"/>
+<text x="30" y="50" font-weight="700" fill="var(--ink)">Did the analysis happen?</text>
+<g fill="var(--muted)" font-size="13">
+<text x="30" y="80">✓ engines found (Java 21+ in 1.1.0)</text><text x="30" y="104">✓ JVM exit code 0, no timeout</text>
+<text x="30" y="128">✓ no engine failure message</text><text x="30" y="152">✓ exactly one JSON report</text>
+<text x="30" y="176">✓ the module is in the report once</text><text x="30" y="200">✓ every severity is known</text>
+<text x="30" y="224">✓ metadata loaded (1.1.0)</text><text x="30" y="248">✓ oscript output recognised</text></g>
+<line x1="262" y1="110" x2="408" y2="70" stroke="var(--muted)" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="300" y="78" fill="var(--muted)" font-size="12.5">any check fails</text>
+<line x1="262" y1="190" x2="408" y2="200" stroke="var(--muted)" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="296" y="215" fill="var(--muted)" font-size="12.5">all checks pass</text>
+<rect x="412" y="36" width="210" height="64" rx="12" fill="var(--bad-soft)" stroke="var(--bad)"/>
+<text x="432" y="64" font-weight="800" font-size="22" fill="var(--bad)">3</text><text x="458" y="63" font-weight="700" fill="var(--ink)">not completed</text>
+<text x="432" y="86" font-size="12.5" fill="var(--muted)">never folded into OK</text>
+<rect x="412" y="150" width="210" height="100" rx="12" fill="var(--surface)" stroke="var(--line)"/>
+<text x="432" y="178" font-weight="700" fill="var(--ink)">Findings of the module</text>
+<text x="432" y="202" font-size="12.5" fill="var(--muted)">OneScript syntax error,</text><text x="432" y="220" font-size="12.5" fill="var(--muted)">BSL LS Error / Warning /</text><text x="432" y="238" font-size="12.5" fill="var(--muted)">Information / Hint</text>
+<line x1="624" y1="170" x2="720" y2="80" stroke="var(--muted)" stroke-width="1.6" marker-end="url(#ar)"/>
+<line x1="624" y1="200" x2="720" y2="170" stroke="var(--muted)" stroke-width="1.6" marker-end="url(#ar)"/>
+<line x1="624" y1="230" x2="720" y2="260" stroke="var(--muted)" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="724" y="50" width="246" height="56" rx="12" fill="var(--bad-soft)" stroke="var(--bad)"/><text x="744" y="85" font-weight="800" font-size="22" fill="var(--bad)">2</text><text x="770" y="84" fill="var(--ink)" font-weight="600">an Error or syntax error</text>
+<rect x="724" y="142" width="246" height="56" rx="12" fill="var(--raised)" stroke="var(--s2)"/><text x="744" y="177" font-weight="800" font-size="22" fill="var(--s2)">1</text><text x="770" y="176" fill="var(--ink)" font-weight="600">warnings only</text>
+<rect x="724" y="234" width="246" height="56" rx="12" fill="var(--good-soft)" stroke="var(--good)"/><text x="744" y="269" font-weight="800" font-size="22" fill="var(--good)">0</text><text x="770" y="268" fill="var(--ink)" font-weight="600">clean (Info/Hint ignored)</text>
+</g></svg></div>
+</section>
+
+<section>
+  <div class="head"><div class="eyebrow">Tests</div><h2 class="t">Mocks for the failure paths, real engines for the rest</h2>
+  <p>Integration tests run real Java, BSL Language Server, OneScript and Git on fixtures: syntax errors, a minimal Designer configuration with two modules, broken or unregistered metadata, an invalid rule parameter and a locked source file. A skipped integration test is not counted as a pass.</p></div>
+  <div class="grid2">
+    <div class="card"><h3>Test suites</h3><div class="chart"><svg viewBox="0 0 620 104" role="img" aria-label="Test suites of both versions" xmlns="http://www.w3.org/2000/svg"><text x="188" y="33.0" text-anchor="end" font-size="13.5" fill="var(--ink)">1.0.0 · BSL LS 0.29.0</text><rect x="200.0" y="14" width="196.9" height="30" rx="4" fill="var(--good)"><title>1.0.0 · BSL LS 0.29.0 — 39 unit</title></rect><text x="210.0" y="33.0" font-size="12.5" font-weight="600" fill="#ffffff">39 unit</text><rect x="398.9" y="14" width="18.2" height="30" rx="4" fill="var(--faint)"><title>1.0.0 · BSL LS 0.29.0 — 4 integration</title></rect><text x="427.1" y="33.0" font-size="12.5" font-weight="600" fill="var(--ink)">4 integration</text><text x="188" y="79.0" text-anchor="end" font-size="13.5" fill="var(--ink)">1.1.0-rc.1 · BSL LS 1.0.7</text><rect x="200.0" y="60" width="227.2" height="30" rx="4" fill="var(--good)"><title>1.1.0-rc.1 · BSL LS 1.0.7 — 45 unit</title></rect><text x="210.0" y="79.0" font-size="12.5" font-weight="600" fill="#ffffff">45 unit</text><rect x="429.2" y="60" width="53.5" height="30" rx="4" fill="var(--faint)"><title>1.1.0-rc.1 · BSL LS 1.0.7 — 11 integration</title></rect><text x="492.8" y="79.0" font-size="12.5" font-weight="600" fill="var(--ink)">11 integration</text></svg></div>
+      <div class="legend2"><span><i style="background:var(--good)"></i>unit</span><span><i style="background:var(--faint)"></i>integration</span></div>
+      <details><summary>Data</summary><table><thead><tr><th>Version</th><th class=n>Tests</th><th class=n>Integration</th><th class=n>Result</th><th class=n>Time</th></tr></thead><tbody><tr><td>1.0.0</td><td class=n>43</td><td class=n>4</td><td class=n>OK, 0 skipped</td><td class=n>151 s</td></tr><tr><td>1.1.0-rc.1</td><td class=n>56</td><td class=n>11</td><td class=n>OK, 0 skipped</td><td class=n>640 s</td></tr></tbody></table></details></div>
+    <div class="card"><h3>What the 1.1.0 checks catch</h3>
+      <table><thead><tr><th>Case</th><th>Exit code</th></tr></thead><tbody>
+      <tr><td>Broken <code>Configuration.xml</code>, engine exits 0</td><td><span class="pill bad">3</span></td></tr>
+      <tr><td>Module missing from <code>Configuration.xml</code></td><td><span class="pill bad">3</span></td></tr>
+      <tr><td>Invalid rule parameter in the config</td><td><span class="pill bad">3</span></td></tr>
+      <tr><td>Locked source file</td><td><span class="pill bad">3</span></td></tr>
+      <tr><td>0.24-era severity names in the report</td><td><span class="pill bad">3</span></td></tr>
+      <tr><td>Two modules named <code>Module.bsl</code></td><td><span class="pill good">matched by full path</span></td></tr>
+      </tbody></table></div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><div class="eyebrow">Measurements</div><h2 class="t">A JVM tuned for short runs</h2>
+  <p><code>-XX:TieredStopAtLevel=1</code> and <code>-XX:ActiveProcessorCount=min(4, CPUs)</code>, measured on BSL Language Server 1.0.7: six scenarios, a warm-up and five alternating paired rounds, a new JVM per run, 4 cores / 8 threads. Diagnostics were identical to the default JVM in every scenario.</p></div>
+  <div class="grid2">
+    <div class="card"><h3>Wall time per check</h3><div class="chart"><svg viewBox="0 0 620 274" role="img" aria-label="Wall time per check on BSL LS 1.0.7: default versus tuned JVM" xmlns="http://www.w3.org/2000/svg"><line x1="150.0" y1="8" x2="150.0" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="150.0" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">0 s</text><line x1="253.5" y1="8" x2="253.5" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="253.5" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">10 s</text><line x1="357.0" y1="8" x2="357.0" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="357.0" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">20 s</text><line x1="460.5" y1="8" x2="460.5" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="460.5" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">30 s</text><line x1="564.0" y1="8" x2="564.0" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="564.0" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">40 s</text><text x="138" y="35.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Small module</text><line x1="536.4" y1="31.0" x2="464.5" y2="31.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="536.4" cy="31.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Small module — before: 37.3 s</title></circle><circle cx="464.5" cy="31.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Small module — after: 30.4 s</title></circle><text x="454.5" y="35.0" text-anchor="end" font-size="12" fill="var(--muted)">30.4</text><text x="546.4" y="35.0" font-size="12" font-weight="600" fill="var(--ink)">37.3</text><text x="138" y="73.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Medium module</text><line x1="447.9" y1="69.0" x2="400.7" y2="69.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="447.9" cy="69.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Medium module — before: 28.8 s</title></circle><circle cx="400.7" cy="69.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Medium module — after: 24.2 s</title></circle><text x="390.7" y="73.0" text-anchor="end" font-size="12" fill="var(--muted)">24.2</text><text x="457.9" y="73.0" font-size="12" font-weight="600" fill="var(--ink)">28.8</text><text x="138" y="111.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Large module</text><line x1="426.3" y1="107.0" x2="382.9" y2="107.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="426.3" cy="107.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Large module — before: 26.7 s</title></circle><circle cx="382.9" cy="107.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Large module — after: 22.5 s</title></circle><text x="372.9" y="111.0" text-anchor="end" font-size="12" fill="var(--muted)">22.5</text><text x="436.3" y="111.0" font-size="12" font-weight="600" fill="var(--ink)">26.7</text><text x="138" y="149.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Form module</text><line x1="461.0" y1="145.0" x2="432.8" y2="145.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="461.0" cy="145.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Form module — before: 30.0 s</title></circle><circle cx="432.8" cy="145.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Form module — after: 27.3 s</title></circle><text x="422.8" y="149.0" text-anchor="end" font-size="12" fill="var(--muted)">27.3</text><text x="471.0" y="149.0" font-size="12" font-weight="600" fill="var(--ink)">30.0</text><text x="138" y="187.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Five modules</text><line x1="374.5" y1="183.0" x2="354.7" y2="183.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="374.5" cy="183.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Five modules — before: 21.7 s</title></circle><circle cx="354.7" cy="183.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Five modules — after: 19.8 s</title></circle><text x="344.7" y="187.0" text-anchor="end" font-size="12" fill="var(--muted)">19.8</text><text x="384.5" y="187.0" font-size="12" font-weight="600" fill="var(--ink)">21.7</text><text x="138" y="225.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Cross-module</text><line x1="382.6" y1="221.0" x2="354.4" y2="221.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="382.6" cy="221.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Cross-module — before: 22.5 s</title></circle><circle cx="354.4" cy="221.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Cross-module — after: 19.8 s</title></circle><text x="344.4" y="225.0" text-anchor="end" font-size="12" fill="var(--muted)">19.8</text><text x="392.6" y="225.0" font-size="12" font-weight="600" fill="var(--ink)">22.5</text></svg></div>
+      <div class="legend2"><span><i style="background:var(--s1)"></i>default JVM</span><span><i style="background:var(--s2)"></i>tuned JVM</span></div>
+      <p class="note">Median ratio ×0.84–0.92.</p></div>
+    <div class="card"><h3>Peak memory per check</h3><div class="chart"><svg viewBox="0 0 620 274" role="img" aria-label="Peak memory per check on BSL LS 1.0.7: default versus tuned JVM" xmlns="http://www.w3.org/2000/svg"><line x1="150.0" y1="8" x2="150.0" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="150.0" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">650 MiB</text><line x1="253.5" y1="8" x2="253.5" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="253.5" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">700 MiB</text><line x1="357.0" y1="8" x2="357.0" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="357.0" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">750 MiB</text><line x1="460.5" y1="8" x2="460.5" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="460.5" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">800 MiB</text><line x1="564.0" y1="8" x2="564.0" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="564.0" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">850 MiB</text><text x="138" y="35.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Small module</text><line x1="476.3" y1="31.0" x2="247.1" y2="31.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="476.3" cy="31.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Small module — before: 808 MiB</title></circle><circle cx="247.1" cy="31.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Small module — after: 697 MiB</title></circle><text x="237.1" y="35.0" text-anchor="end" font-size="12" fill="var(--muted)">697</text><text x="486.3" y="35.0" font-size="12" font-weight="600" fill="var(--ink)">808</text><text x="138" y="73.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Medium module</text><line x1="491.6" y1="69.0" x2="247.9" y2="69.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="491.6" cy="69.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Medium module — before: 815 MiB</title></circle><circle cx="247.9" cy="69.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Medium module — after: 697 MiB</title></circle><text x="237.9" y="73.0" text-anchor="end" font-size="12" fill="var(--muted)">697</text><text x="501.6" y="73.0" font-size="12" font-weight="600" fill="var(--ink)">815</text><text x="138" y="111.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Large module</text><line x1="471.7" y1="107.0" x2="265.8" y2="107.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="471.7" cy="107.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Large module — before: 805 MiB</title></circle><circle cx="265.8" cy="107.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Large module — after: 706 MiB</title></circle><text x="255.8" y="111.0" text-anchor="end" font-size="12" fill="var(--muted)">706</text><text x="481.7" y="111.0" font-size="12" font-weight="600" fill="var(--ink)">805</text><text x="138" y="149.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Form module</text><line x1="489.8" y1="145.0" x2="262.3" y2="145.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="489.8" cy="145.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Form module — before: 814 MiB</title></circle><circle cx="262.3" cy="145.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Form module — after: 704 MiB</title></circle><text x="252.3" y="149.0" text-anchor="end" font-size="12" fill="var(--muted)">704</text><text x="499.8" y="149.0" font-size="12" font-weight="600" fill="var(--ink)">814</text><text x="138" y="187.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Five modules</text><line x1="482.5" y1="183.0" x2="256.4" y2="183.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="482.5" cy="183.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Five modules — before: 811 MiB</title></circle><circle cx="256.4" cy="183.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Five modules — after: 701 MiB</title></circle><text x="246.4" y="187.0" text-anchor="end" font-size="12" fill="var(--muted)">701</text><text x="492.5" y="187.0" font-size="12" font-weight="600" fill="var(--ink)">811</text><text x="138" y="225.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Cross-module</text><line x1="517.5" y1="221.0" x2="260.9" y2="221.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="517.5" cy="221.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Cross-module — before: 828 MiB</title></circle><circle cx="260.9" cy="221.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Cross-module — after: 704 MiB</title></circle><text x="250.9" y="225.0" text-anchor="end" font-size="12" fill="var(--muted)">704</text><text x="527.5" y="225.0" font-size="12" font-weight="600" fill="var(--ink)">828</text></svg></div>
+      <div class="legend2"><span><i style="background:var(--s1)"></i>default JVM</span><span><i style="background:var(--s2)"></i>tuned JVM</span></div>
+      <p class="note">Median ratio ×0.85–0.87. CPU time: ×0.41–0.44, see the cover.</p></div>
+  </div>
+  <details><summary>Data</summary><table><thead><tr><th>Scenario</th><th class=n>Wall default, s</th><th class=n>Wall tuned, s</th><th class=n>CPU default, s</th><th class=n>CPU tuned, s</th><th class=n>Memory default, MiB</th><th class=n>Memory tuned, MiB</th></tr></thead><tbody><tr><td>Small module</td><td class=n>37.3</td><td class=n>30.4</td><td class=n>114.7</td><td class=n>48.6</td><td class=n>808</td><td class=n>697</td></tr><tr><td>Medium module</td><td class=n>28.8</td><td class=n>24.2</td><td class=n>106.3</td><td class=n>42.8</td><td class=n>815</td><td class=n>697</td></tr><tr><td>Large module</td><td class=n>26.7</td><td class=n>22.5</td><td class=n>111.4</td><td class=n>46.1</td><td class=n>805</td><td class=n>706</td></tr><tr><td>Form module</td><td class=n>30.0</td><td class=n>27.3</td><td class=n>133.5</td><td class=n>60.6</td><td class=n>814</td><td class=n>704</td></tr><tr><td>Five modules</td><td class=n>21.7</td><td class=n>19.8</td><td class=n>103.8</td><td class=n>45.0</td><td class=n>811</td><td class=n>701</td></tr><tr><td>Cross-module</td><td class=n>22.5</td><td class=n>19.8</td><td class=n>98.0</td><td class=n>42.0</td><td class=n>828</td><td class=n>704</td></tr></tbody></table></details>
+  <div class="card"><h3>The price of BSL Language Server 1.0.7</h3><div class="chart"><svg viewBox="0 0 1040 274" role="img" aria-label="Wall time per check: BSL LS 0.29.0 in release 1.0.0 versus BSL LS 1.0.7 in 1.1.0" xmlns="http://www.w3.org/2000/svg"><line x1="170.0" y1="8" x2="170.0" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="170.0" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">0 s</text><line x1="332.8" y1="8" x2="332.8" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="332.8" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">5 s</text><line x1="495.6" y1="8" x2="495.6" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="495.6" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">10 s</text><line x1="658.4" y1="8" x2="658.4" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="658.4" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">15 s</text><line x1="821.2" y1="8" x2="821.2" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="821.2" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">20 s</text><line x1="984.0" y1="8" x2="984.0" y2="244" stroke="var(--grid)" stroke-width="1"/><text x="984.0" y="260" text-anchor="middle" font-size="12" fill="var(--muted)">25 s</text><text x="158" y="35.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Small module</text><line x1="423.6" y1="31.0" x2="778.4" y2="31.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="423.6" cy="31.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Small module — before: 7.8 s</title></circle><circle cx="778.4" cy="31.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Small module — after: 18.7 s</title></circle><text x="413.6" y="35.0" text-anchor="end" font-size="12" fill="var(--muted)">7.8</text><text x="788.4" y="35.0" font-size="12" font-weight="600" fill="var(--ink)">18.7</text><text x="158" y="73.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Medium module</text><line x1="431.3" y1="69.0" x2="766.4" y2="69.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="431.3" cy="69.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Medium module — before: 8.0 s</title></circle><circle cx="766.4" cy="69.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Medium module — after: 18.3 s</title></circle><text x="421.3" y="73.0" text-anchor="end" font-size="12" fill="var(--muted)">8.0</text><text x="776.4" y="73.0" font-size="12" font-weight="600" fill="var(--ink)">18.3</text><text x="158" y="111.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Large module</text><line x1="467.7" y1="107.0" x2="808.3" y2="107.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="467.7" cy="107.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Large module — before: 9.1 s</title></circle><circle cx="808.3" cy="107.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Large module — after: 19.6 s</title></circle><text x="457.7" y="111.0" text-anchor="end" font-size="12" fill="var(--muted)">9.1</text><text x="818.3" y="111.0" font-size="12" font-weight="600" fill="var(--ink)">19.6</text><text x="158" y="149.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Form module</text><line x1="569.7" y1="145.0" x2="944.7" y2="145.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="569.7" cy="145.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Form module — before: 12.3 s</title></circle><circle cx="944.7" cy="145.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Form module — after: 23.8 s</title></circle><text x="559.7" y="149.0" text-anchor="end" font-size="12" fill="var(--muted)">12.3</text><text x="954.7" y="149.0" font-size="12" font-weight="600" fill="var(--ink)">23.8</text><text x="158" y="187.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Five modules</text><line x1="462.9" y1="183.0" x2="818.4" y2="183.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="462.9" cy="183.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Five modules — before: 9.0 s</title></circle><circle cx="818.4" cy="183.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Five modules — after: 19.9 s</title></circle><text x="452.9" y="187.0" text-anchor="end" font-size="12" fill="var(--muted)">9.0</text><text x="828.4" y="187.0" font-size="12" font-weight="600" fill="var(--ink)">19.9</text><text x="158" y="225.0" text-anchor="end" font-size="13.5" fill="var(--ink)">Cross-module</text><line x1="467.7" y1="221.0" x2="819.9" y2="221.0" stroke="var(--muted)" stroke-width="2" stroke-opacity=".55"/><circle cx="467.7" cy="221.0" r="6.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"><title>Cross-module — before: 9.1 s</title></circle><circle cx="819.9" cy="221.0" r="6.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"><title>Cross-module — after: 20.0 s</title></circle><text x="457.7" y="225.0" text-anchor="end" font-size="12" fill="var(--muted)">9.1</text><text x="829.9" y="225.0" font-size="12" font-weight="600" fill="var(--ink)">20.0</text></svg></div>
+    <div class="legend2"><span><i style="background:var(--s1)"></i>0.29.0 · release 1.0.0</span><span><i style="background:var(--s2)"></i>1.0.7 · release 1.1.0</span></div>
+    <p class="note">1.0.7 reads the syntax helper of the installed 1C platform on every run: ×1.9–2.4 wall time, in exchange for platform-aware diagnostics such as members unavailable in the target compatibility mode.</p></div>
+</section>
+
+<section>
+  <div class="head"><div class="eyebrow">Use it</div><h2 class="t">Install and run</h2></div>
+  <pre class="block">git clone https://github.com/ivanbokhan84/vanteam-bsl-check.git
+cd vanteam-bsl-check
+python scripts/fetch_dependencies.py          # BSL LS JAR, SHA-256 verified
+python tools/check_bsl.py path/to/Module.bsl --all
+python tools/bsl_new_findings.py path/to/Module.bsl</pre>
+  <div class="links">
+    <a href="https://github.com/ivanbokhan84/vanteam-bsl-check">Repository</a>
+    <a href="https://github.com/ivanbokhan84/vanteam-bsl-check/releases">Releases</a>
+    <a href="https://github.com/ivanbokhan84/OneScript">OneScript preprocessor fix</a>
+    <a href="https://github.com/1c-syntax/bsl-language-server">BSL Language Server</a>
+  </div>
+</section>
+
+<footer>MIT license. Maintained by Ivan Bokhan. BSL Language Server by the 1c-syntax community (LGPL-3.0), OneScript by EvilBeaver and the OneScript contributors (MPL-2.0); neither is bundled. Measurements: 28 September 2026.</footer>
+
+</main>
+</body>
+</html>

@@ -10,6 +10,10 @@
 </div>
 <br/>
 
+<p align="center"><a href="https://ivanbokhan84.github.io/vanteam-bsl-check/"><img src="docs/cover.png" alt="Vanteam BSL Check: exit codes, tests and measurements" width="100%" /></a></p>
+
+Project page with the test and measurement charts: **[ivanbokhan84.github.io/vanteam-bsl-check](https://ivanbokhan84.github.io/vanteam-bsl-check/)**.
+
 Vanteam BSL Check is a small Python wrapper around two existing tools:
 
 * **[OneScript](https://github.com/EvilBeaver/OneScript)** `oscript -check` — a quick syntax check, about a second per module;
@@ -25,7 +29,7 @@ Maintained by **Ivan Bokhan**.
 * **Explicit analysis scope.** By default BSL LS sees the `.bsl`/`.os` files of the module's own directory; nested folders (for example archives next to the module) are left out. `--source-dir` sets a recursive context and the metadata root for a full Designer/EDT dump; `--standalone` checks the file alone. The scope is printed with every run.
 * **Only new findings.** `bsl_new_findings.py` compares a module with its version in Git (default `HEAD`) and prints only the ERROR/WARN findings that appeared. Large legacy modules can carry hundreds of old warnings; the rule "no errors and no *new* warnings" stays usable.
 * **One analysis at a time.** An OS-level file lock serialises BSL LS runs per checkout; a second run waits up to 300 s. The lock is released by the OS if its owner crashes.
-* **Tuned for short CLI runs.** The JVM runs with `-XX:TieredStopAtLevel=1` and `-XX:ActiveProcessorCount=min(4, CPUs)`. In paired measurements on the author's machine (4 cores / 8 threads, pre-release build) this cut CPU time to about a third and wall time by 15–22 % with identical diagnostics. These settings target one-shot analysis, not a long-running language server in an editor.
+* **Tuned for short CLI runs.** The JVM runs with `-XX:TieredStopAtLevel=1` and `-XX:ActiveProcessorCount=min(4, CPUs)`. An independent recalculation of the paired measurements on the author's machine (4 cores / 8 threads, pre-release build, four scenarios) gives CPU time ×0.28–0.38 and wall time ×0.63–0.92 of the default JVM; the only diagnostic differences were the two rules disabled on purpose. These settings target one-shot analysis, not a long-running language server in an editor.
 
 ## Requirements
 
