@@ -1,8 +1,8 @@
 """Регресс обвязки BSL LS: сбой не становится успехом, найденная ERROR не становится сбоем.
 
-Запуск из корня проекта: python -m unittest tools/tests/test_check_bsl.py -v
-Интеграционные тесты запускают настоящие JAR BSL LS и oscript (несколько минут);
-пропуск: переменная окружения BSL_TESTS_SKIP_INTEGRATION=1.
+Запуск из корня релиза: python -m unittest tools/tests/test_check_bsl.py -v
+Интеграционные тесты запускают настоящие JAR BSL LS 1.0.7, oscript и git (десятки минут);
+пропуск: переменная окружения BSL_TESTS_SKIP_INTEGRATION=1 (такой прогон не является приёмкой).
 """
 import contextlib
 import io
@@ -28,6 +28,17 @@ FIND_JAR = checker.find_bsl_ls_jar  # до подмен в setUp
 CLEAN_MODULE = ('// Модуль для теста.\r\n//\r\n// Возвращаемое значение:\r\n//  Число - 1.\r\n//\r\n'
                 'Функция Один() Экспорт\r\n\tВозврат 1;\r\nКонецФункции\r\n')
 BAD_PROCEDURE = 'Процедура Плохая() Экспорт\r\n\tВозврат 1;\r\nКонецПроцедуры\r\n'
+UNKNOWN_SYMBOL = ('\r\n// Вызов модуля вне контекста.\r\n//\r\n// Возвращаемое значение:\r\n//  Число - результат.\r\n'
+                  '//\r\nФункция Два() Экспорт\r\n\tВозврат Ext_НеизвестныйМодуль.Значение();\r\nКонецФункции\r\n')
+# Строки лога настоящего BSL LS 1.0.7 при коде выхода 0 (зонды 28.09.2026).
+LOG_WARN = ("2026-09-28T10:12:56.826+03:00  WARN 31768 --- [BSL Language Server] [configuration-0] "
+            "c.g._.b.r.common.xstream.ExtendXStream   : Can't read file 'Configuration.xml'")
+LOG_ERROR = ("2026-09-28T10:13:29.376+03:00 ERROR 16508 --- [BSL Language Server] [           main] "
+             "c.g._.b.l.c.d.ParametersDeserializer     : Can't deserialize parameter configuration")
+LOG_INFO = ("2026-09-28T10:09:46.750+03:00  INFO 35664 --- [BSL Language Server] [           main] "
+            "c.g._.b.l.reporters.JsonReporter         : JSON report saved to report\\bsl-json.json")
+LOG_PLATFORM = ("2026-09-28T09:59:59.969+03:00  INFO 31572 --- [BSL Language Server] [-types-warmup-1] "
+                "_.b.l.t.r.PlatformContextProviderFactory : Loaded 2495 platform contexts from 1C syntax helper")
 
 
 def quiet():
@@ -56,7 +67,7 @@ class CheckerTests(unittest.TestCase):
         self.stack.close()
         self.temp.cleanup()
 
-    def run_report(self, report, code=0, output='', reports=1, **scope):
+    def run_report(self, report, code=0, output='', reports=1, quiet=True, **scope):
         """Подменяет JVM: пишет отчёт (dict или функция от каталога анализа) в --outputDir."""
         def run(cmd, **kwargs):
             src_dir = Path(cmd[cmd.index('--srcDir') + 1])
@@ -70,11 +81,13 @@ class CheckerTests(unittest.TestCase):
                     dest.write_text(json.dumps(data), encoding='utf-8')
             return subprocess.CompletedProcess(cmd, code, output, '')
         with patch.object(checker.subprocess, 'run', side_effect=run):
-            return checker.run_bsl_ls_check(self.target, quiet=True, **scope)
+            return checker.run_bsl_ls_check(self.target, quiet=quiet, **scope)
 
-    def report(self, diagnostics=None, path=None):
-        return {'fileinfos': [{'path': str((path or self.target).relative_to(self.root)),
-                               'diagnostics': diagnostics or []}]}
+    def report(self, diagnostics=None, path=None, mdo_ref=None):
+        info = {'path': str((path or self.target).relative_to(self.root)), 'diagnostics': diagnostics or []}
+        if mdo_ref is not None:
+            info['mdoRef'] = mdo_ref
+        return {'fileinfos': [info]}
 
     def test_empty_diagnostics_are_success(self):
         self.assertEqual(self.run_report(self.report()), (0, {}))
@@ -133,6 +146,53 @@ class CheckerTests(unittest.TestCase):
         for diagnostic in ({}, {'severity': 1}, {'severity': 'NewSeverity'}, None):
             with self.subTest(diagnostic=diagnostic):
                 self.assertEqual(self.run_report(self.report([diagnostic]))[0], checker.INCOMPLETE)
+
+    def test_legacy_severity_names_are_incomplete(self):
+        # BSL LS 1.0.7 пишет только severity lsp4j; имена формата 0.24 - чужой формат отчёта.
+        for severity in ('Critical', 'Major', 'Minor', 'Info'):
+            with self.subTest(severity=severity):
+                self.assertEqual(self.run_report(self.report([{'severity': severity}]))[0],
+                                 checker.INCOMPLETE)
+
+    def test_engine_log_warn_or_error_is_incomplete(self):
+        for line in (LOG_WARN, LOG_ERROR, 'prefix\r\n' + LOG_ERROR + '\r\n'):
+            with self.subTest(line=line):
+                self.assertEqual(self.run_report(self.report(), output=line)[0], checker.INCOMPLETE)
+        self.assertEqual(self.run_report(self.report(), output=LOG_INFO + '\n' + LOG_PLATFORM), (0, {}))
+        self.assertEqual(checker.engine_failure(LOG_ERROR), LOG_ERROR)
+
+    def test_old_java_is_incomplete(self):
+        with patch.object(checker, 'java_version_major', return_value=17):
+            self.assertEqual(self.run_report(self.report())[0], checker.INCOMPLETE)
+        self.assertEqual(self.calls, [])
+
+    def test_designer_source_dir_requires_loaded_metadata(self):
+        uri = self.target.as_uri()
+        self.assertEqual(self.run_report(self.report(mdo_ref=uri), source_dir=str(self.source)), (0, {}))
+        (self.source / 'Configuration.xml').write_text('<MetaDataObject/>', encoding='utf-8')
+        for mdo_ref in (uri, '', None):
+            with self.subTest(mdo_ref=mdo_ref):
+                self.assertEqual(self.run_report(self.report(mdo_ref=mdo_ref), source_dir=str(self.source))[0],
+                                 checker.INCOMPLETE)
+        self.assertEqual(self.run_report(self.report(mdo_ref='CommonModule.Потребитель'),
+                                         source_dir=str(self.source)), (0, {}))
+        # Без --source-dir metadata не ожидаются: область по умолчанию - только каталог цели.
+        self.assertEqual(self.run_report(self.report(mdo_ref=uri)), (0, {}))
+
+    def test_edt_source_dir_requires_loaded_metadata(self):
+        (self.source / 'Configuration').mkdir()
+        (self.source / 'Configuration' / 'Configuration.mdo').write_text('<mdclass/>', encoding='utf-8')
+        self.assertEqual(self.run_report(self.report(mdo_ref=self.target.as_uri()),
+                                         source_dir=str(self.source))[0], checker.INCOMPLETE)
+
+    def test_platform_context_source_is_printed(self):
+        for output, expected in ((LOG_PLATFORM, 'контекстов: 2495'), ('', 'встроенные описания BSL LS')):
+            with self.subTest(expected=expected):
+                printed = io.StringIO()
+                with contextlib.redirect_stdout(printed):
+                    self.assertEqual(self.run_report(self.report(), output=output, quiet=False), (0, {}))
+                self.assertIn('Контекст платформы: ' + checker.describe_platform(output), printed.getvalue())
+                self.assertIn(expected, printed.getvalue())
 
     def test_jvm_runs_from_project_root(self):
         self.run_report(self.report())
@@ -461,9 +521,91 @@ class IntegrationTests(unittest.TestCase):
 
     def check(self, *args, cwd):
         env = dict(os.environ, PYTHONIOENCODING='utf-8')
+        # Страховка теста длиннее собственного таймаута JVM обёртки: зависание - провал, не пропуск.
         result = subprocess.run([sys.executable, str(TOOLS / 'check_bsl.py'), *map(str, args)],
-                                capture_output=True, cwd=cwd, env=env, timeout=300)
+                                capture_output=True, cwd=cwd, env=env, timeout=checker.BSL_LS_TIMEOUT_SEC + 180)
         return result.returncode, result.stdout.decode('utf-8', 'replace')
+
+    def run_in_process(self, target, config, **scope):
+        """run_bsl_ls_check с подменённым конфигом релиза (исходный файл не меняется)."""
+        output = io.StringIO()
+        with patch.object(checker, 'BSL_LS_CONFIG', config), contextlib.redirect_stdout(output):
+            code, _ = checker.run_bsl_ls_check(target, **scope)
+        return code, output.getvalue()
+
+    def xmod_copy(self):
+        copy = self.root / 'xmod'
+        shutil.copytree(FIXTURES / 'xmod', copy)
+        return copy
+
+    def test_broken_designer_metadata_is_incomplete(self):
+        # BSL LS 1.0.7: WARN mdclasses «Can't read file», код 0, metadata пусты - раньше это был OK.
+        xmod = self.xmod_copy()
+        configuration = xmod / 'Configuration.xml'
+        configuration.write_bytes(configuration.read_bytes()[:400])
+        consumer = xmod / 'CommonModules' / 'Потребитель' / 'Ext' / 'Module.bsl'
+        code, output = self.check(consumer, '--deep', '--source-dir', xmod, cwd=checker.PROJECT_ROOT)
+        self.assertEqual(code, checker.INCOMPLETE, output)
+        self.assertIn('Проверка неполная', output)
+        self.assertNotIn('РЕЗУЛЬТАТ: OK', output)
+
+    def test_unregistered_module_metadata_is_incomplete(self):
+        # Модуль не перечислен в Configuration.xml: BSL LS 1.0.7 без WARN, код 0, mdoRef цели - URI файла,
+        # CommonModuleInvalidType пропадает. Без проверки mdoRef итог был бы OK.
+        xmod = self.xmod_copy()
+        configuration = xmod / 'Configuration.xml'
+        text = configuration.read_text(encoding='utf-8')
+        configuration.write_text(text.replace('\t\t\t<CommonModule>Потребитель</CommonModule>\n', ''),
+                                 encoding='utf-8', newline='')
+        self.assertNotIn('Потребитель', configuration.read_text(encoding='utf-8'))
+        consumer = xmod / 'CommonModules' / 'Потребитель' / 'Ext' / 'Module.bsl'
+        code, output = self.check(consumer, '--deep', '--source-dir', xmod, cwd=checker.PROJECT_ROOT)
+        self.assertEqual(code, checker.INCOMPLETE, output)
+        self.assertIn('metadata выгрузки', output)
+        self.assertNotIn('РЕЗУЛЬТАТ: OK', output)
+
+    def test_invalid_rule_parameter_is_incomplete(self):
+        # Строка вместо булева/объекта: ERROR «Can't deserialize parameter configuration» при коде 0.
+        config = json.loads(checker.BSL_LS_CONFIG.read_text(encoding='utf-8'))
+        config['diagnostics']['parameters']['Typo'] = 'yes'
+        config_path = self.root / 'config.json'
+        config_path.write_text(json.dumps(config, ensure_ascii=False), encoding='utf-8')
+        code, output = self.run_in_process(FIXTURES / 'errors' / 'Module.bsl', config_path)
+        self.assertEqual(code, checker.INCOMPLETE, output)
+        self.assertIn("Can't deserialize parameter configuration", output)
+
+    @unittest.skipUnless(os.name == 'nt', 'блокировка диапазона байтов для чтения JVM - только Windows')
+    def test_locked_source_file_is_incomplete(self):
+        import msvcrt
+        target = self.root / 'Module.bsl'
+        shutil.copy2(FIXTURES / 'errors' / 'Module.bsl', target)
+        size = target.stat().st_size
+        with target.open('r+b') as stream:
+            msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, size)
+            try:
+                code, output = self.check(target, '--deep', cwd=checker.PROJECT_ROOT)
+            finally:
+                stream.seek(0)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, size)
+        self.assertEqual(code, checker.INCOMPLETE, output)
+        self.assertNotIn('Findings:', output)
+
+    def test_same_basename_modules_are_matched_by_full_path(self):
+        # Два Module.bsl в одной выгрузке: находка потребителя не должна попасть в итог поставщика.
+        xmod = self.xmod_copy()
+        supplier = xmod / 'CommonModules' / 'Поставщик' / 'Ext' / 'Module.bsl'
+        code, output = self.check(supplier, '--deep', '--source-dir', xmod, cwd=checker.PROJECT_ROOT)
+        self.assertEqual(code, 2, output)
+        self.assertIn('CommonModuleInvalidType', output)
+        self.assertNotIn('DeprecatedMethodCall', output)
+
+    def test_working_directory_outside_release(self):
+        with tempfile.TemporaryDirectory(prefix='bsl_cwd_') as outside:
+            self.assertFalse(Path(outside).resolve().is_relative_to(checker.PROJECT_ROOT))
+            code, output = self.check(FIXTURES / 'errors' / 'Module.bsl', '--all', cwd=outside)
+        self.assertEqual(code, 2, output)
+        self.assertIn('Findings: 3', output)
+        self.assertIn('Процедуры не могут возвращать значение', output)
 
     def test_real_errors_from_other_working_directory(self):
         code, output = self.check(FIXTURES / 'errors' / 'Module.bsl', '--all', cwd=TOOLS)
@@ -516,12 +658,36 @@ class IntegrationTests(unittest.TestCase):
         target.write_bytes((CLEAN_MODULE + BAD_PROCEDURE).encode('utf-8'))
         env = dict(os.environ, PYTHONIOENCODING='utf-8')
         result = subprocess.run([sys.executable, str(TOOLS / 'bsl_new_findings.py'), str(target)],
-                                capture_output=True, cwd=repo, env=env, timeout=600)
+                                capture_output=True, cwd=repo, env=env, timeout=2 * checker.BSL_LS_TIMEOUT_SEC + 300)
         output = result.stdout.decode('utf-8', 'replace')
         self.assertEqual(result.returncode, 1, output)
         self.assertIn('ProcedureReturnsValue', output)
         self.assertIn('НОВОЕ ERROR', output)
         self.assertIn('oscript ERROR', output)
+
+    def test_new_findings_unknown_symbol_outside_release_is_incomplete(self):
+        # Репозиторий и cwd вне релиза; BSL LS без новых ERROR, OneScript - «Неизвестный символ».
+        with tempfile.TemporaryDirectory(prefix='bsl_git_') as outside:
+            repo = Path(outside).resolve() / 'repo'
+            (repo / 'mod').mkdir(parents=True)
+            git(repo, 'init', '-q')
+            for key, value in [('core.autocrlf', 'true'), ('user.name', 'Тест'),
+                               ('user.email', 'test@example.invalid'), ('commit.gpgsign', 'false')]:
+                git(repo, 'config', key, value)
+            target = repo / 'mod' / 'Module.bsl'
+            target.write_bytes(CLEAN_MODULE.encode('utf-8'))
+            git(repo, 'add', '.')
+            git(repo, 'commit', '-q', '-m', 'база')
+            target.write_bytes((CLEAN_MODULE + UNKNOWN_SYMBOL).encode('utf-8'))
+            env = dict(os.environ, PYTHONIOENCODING='utf-8')
+            result = subprocess.run([sys.executable, str(TOOLS / 'bsl_new_findings.py'), str(target)],
+                                    capture_output=True, cwd=repo, env=env,
+                                    timeout=2 * checker.BSL_LS_TIMEOUT_SEC + 300)
+        output = result.stdout.decode('utf-8', 'replace')
+        self.assertEqual(result.returncode, 2, output)
+        self.assertIn('Неизвестный символ', output)
+        self.assertIn('проверка не выполнена полностью', output)
+        self.assertIn('ERROR всего в модуле: 0', output)
 
 
 if __name__ == '__main__':
