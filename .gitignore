@@ -1,0 +1,12 @@
+# Third-party binaries, restored by scripts/fetch_dependencies.py
+tools/bsl_ls/*.jar
+tools/jdk21/
+.downloads/
+
+# Runtime state
+_temp/
+tools/bsl_ls/_tmp/
+
+# Python
+__pycache__/
+*.pyc
