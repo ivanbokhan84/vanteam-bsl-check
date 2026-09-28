@@ -5,8 +5,8 @@
 <div align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+" /></a>
-  <a href="https://github.com/1c-syntax/bsl-language-server/releases/tag/v0.29.0"><img src="https://img.shields.io/badge/BSL%20Language%20Server-0.29.0-lightgrey" alt="BSL Language Server 0.29.0" /></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-1.0.0-orange" alt="Release 1.0.0" /></a>
+  <a href="https://github.com/1c-syntax/bsl-language-server/releases/tag/v1.0.7"><img src="https://img.shields.io/badge/BSL%20Language%20Server-1.0.7-lightgrey" alt="BSL Language Server 1.0.7" /></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-1.1.0--rc.1-yellow" alt="Release candidate 1.1.0-rc.1" /></a>
 </div>
 <br/>
 
@@ -19,13 +19,16 @@ Neither engine is modified. The wrapper decides *what* is analysed, runs the eng
 
 Maintained by **Ivan Bokhan**.
 
+> **This branch is the 1.1.0 release candidate** for BSL Language Server 1.0.7. Its independent review is not finished yet; the stable release is [1.0.0 on `main`](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/main).
+
 ## Features
 
 * **Honest results.** Exit code `3` means the check did not complete — the engine is missing, timed out, crashed, printed a known failure message, or produced no usable report. It is never folded into "OK".
 * **Explicit analysis scope.** By default BSL LS sees the `.bsl`/`.os` files of the module's own directory; nested folders (for example archives next to the module) are left out. `--source-dir` sets a recursive context and the metadata root for a full Designer/EDT dump; `--standalone` checks the file alone. The scope is printed with every run.
 * **Only new findings.** `bsl_new_findings.py` compares a module with its version in Git (default `HEAD`) and prints only the ERROR/WARN findings that appeared. Large legacy modules can carry hundreds of old warnings; the rule "no errors and no *new* warnings" stays usable.
 * **One analysis at a time.** An OS-level file lock serialises BSL LS runs per checkout; a second run waits up to 300 s. The lock is released by the OS if its owner crashes.
-* **Tuned for short CLI runs.** The JVM runs with `-XX:TieredStopAtLevel=1` and `-XX:ActiveProcessorCount=min(4, CPUs)`. In paired measurements on the author's machine (4 cores / 8 threads, pre-release build) this cut CPU time to about a third and wall time by 15–22 % with identical diagnostics. These settings target one-shot analysis, not a long-running language server in an editor.
+* **Silent engine failures are caught.** BSL LS 1.0.7 can skip part of the analysis and still exit with `0`: a broken `Configuration.xml`, an invalid rule parameter, a platform context that failed to load. Any WARN/ERROR line in the engine log, and a module without loaded metadata under `--source-dir`, end with code `3`.
+* **Tuned for short CLI runs.** The JVM runs with `-XX:TieredStopAtLevel=1` and `-XX:ActiveProcessorCount=min(4, CPUs)`. Re-measured on BSL LS 1.0.7 (6 scenarios, warm-up and 5 paired rounds on the author's 4-core / 8-thread machine): wall time ×0.84–0.92, CPU time ×0.41–0.44, peak memory ×0.85–0.87, identical diagnostics. These settings target one-shot analysis, not a long-running language server in an editor.
 
 ## Requirements
 
@@ -33,7 +36,7 @@ Maintained by **Ivan Bokhan**.
 |---|---|---|
 | Python | 3.10+ | standard library only |
 | Java | 21+ | a portable Temurin 21 can be fetched into `tools/jdk21` |
-| BSL Language Server | 0.29.0 | `bsl-language-server-0.29.0-exec.jar`, fetched and SHA-256-verified |
+| BSL Language Server | 1.0.7 | `bsl-language-server-1.0.7-exec.jar`, fetched and SHA-256-verified |
 | OneScript | 1.9.4 tested | installed separately, see [OneScript version](#onescript-version) |
 | Git | any recent | for `bsl_new_findings.py` |
 
@@ -94,7 +97,18 @@ INFO and HINT findings never raise the code.
 * **Diagnostics** — [`tools/bsl_ls/.bsl-language-server.json`](tools/bsl_ls/.bsl-language-server.json). With `--source-dir` the wrapper writes a temporary copy with an absolute `configurationRoot`; the original file is never changed.
 * **`BSL_LS_JAR`** — path to a specific JAR. A path that does not exist ends with code `3`; it is not silently replaced by the bundled one.
 * **OneScript** — looked up at `C:\Program Files\OneScript\bin\oscript.exe`, then on `PATH`.
-* **Java** — `tools/jdk21`, then `PATH`, then standard Windows install locations.
+* **Java** — `tools/jdk21`, then `PATH`, then standard Windows install locations. Java below 21 ends with code `3`.
+* **1C platform context** — BSL LS 1.0.7 reads the syntax helper of the newest 1C:Enterprise platform installed on the machine and falls back to built-in descriptions without it. The wrapper prints which one was used. Results of type-aware rules can therefore differ between machines.
+* **Compatibility mode** — to catch methods that do not exist in the target platform, add to the configuration file:
+
+  ```json
+  "v8platform": {
+    "enabled": true,
+    "targetVersion": "8.2.16"
+  }
+  ```
+
+  Use the compatibility mode of *your* configuration. With `8.2.16`, `СтрНайти` is reported as `UnavailableMemberCall` (available since 8.3.6). This needs the platform syntax helper: check that the output says it was loaded. OneScript does not check platform API availability.
 
 ## OneScript version
 
@@ -108,7 +122,7 @@ OneScript **2.2.0** has a preprocessor bug: inside an inactive `#Если` branc
 python -m unittest tools/tests/test_check_bsl.py -v
 ```
 
-43 tests. Four integration tests run real Java, BSL LS, OneScript and Git on the fixtures in `tools/tests/fixtures`: syntax errors, and a minimal Designer configuration with two modules for cross-module diagnostics. They are skipped when a tool is missing or `BSL_TESTS_SKIP_INTEGRATION` is set. A skipped integration test is not a pass.
+56 tests. Eleven integration tests run real Java, BSL LS, OneScript and Git: the fixtures in `tools/tests/fixtures` — syntax errors and a minimal Designer configuration with two modules — plus broken or incomplete metadata, an invalid rule parameter and a locked source file created on the fly. They are skipped when a tool is missing or `BSL_TESTS_SKIP_INTEGRATION` is set. A skipped integration test is not a pass.
 
 ## Repository layout
 
@@ -127,7 +141,9 @@ DEPENDENCIES.json               pinned versions, URLs and SHA-256
 | Version | BSL LS | Status |
 |---|---|---|
 | [1.0.0](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/v1.0.0) | 0.29.0 | stable, independently reviewed, `main` |
-| [1.1.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.1.0) | 1.0.7 | release candidate, independent review pending |
+| [1.1.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.1.0) | 1.0.7 | release candidate, independent review pending, this branch |
+
+BSL LS 1.0.7 loads the installed platform's syntax helper on every run; on the author's machine a check takes 1.9–2.4 times longer than with 0.29.0.
 
 See [CHANGELOG.md](CHANGELOG.md).
 
