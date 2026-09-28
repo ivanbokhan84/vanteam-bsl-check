@@ -30,17 +30,22 @@ Exit codes:
   1 — есть warnings (но не errors)
   2 — есть errors (находки BSL LS уровня Error или ошибка oscript -check)
   3 — проверка не выполнена полностью (нет инструмента, таймаут, занят замок, сбой JVM
-      или правила, нет отчёта или цели в отчёте); это не успех и не список находок
+      или правила, строка WARN/ERROR в логе движка, нет отчёта или цели в отчёте,
+      не загружены metadata при --source-dir с выгрузкой); это не успех и не список находок
 
 Требования:
   - OneScript: C:\\Program Files\\OneScript\\bin\\oscript.exe (для --quick / по умолчанию)
-  - Java 21+ (portable в tools/jdk21/ или системная) + tools/bsl_ls/bsl-language-server-*.jar (для --deep / --all)
+  - Java 21+ (portable в tools/jdk21/ или системная) + tools/bsl_ls/bsl-language-server-*.jar (для --deep / --all);
+    релиз проверен на BSL LS 1.0.7
   - env BSL_LS_JAR — переопределение пути к jar (опционально)
+BSL LS 1.0.7 по умолчанию берёт контекст платформы из синтакс-помощника установленной 1С
+(самая свежая версия на машине), без неё - встроенные описания; источник печатается в выводе.
 """
 import argparse
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -59,13 +64,14 @@ OSCRIPT_DEFAULT = r"C:\Program Files\OneScript\bin\oscript.exe"
 INCOMPLETE = 3
 SOURCE_SUFFIXES = (".bsl", ".os")
 LOCK_TIMEOUT_SEC = 300
-# Короткий CLI-анализ, замер 27.09.2026:
-# TieredStopAtLevel=1 - только JIT C1 (C2 не успевает окупиться за 10-30 с): CPU x0,33-0,39;
-# ActiveProcessorCount - видимое JVM число процессоров (пулы ForkJoin, GC), не квота: CPU и RSS ниже.
-# Вместе: wall x0,78-0,85, CPU x0,32-0,37, пик RSS x0,73-0,88; находки совпали по всем полям.
+BSL_LS_TIMEOUT_SEC = 120
+# Короткий CLI-анализ BSL LS 1.0.7, замер 28.09.2026 (6 сценариев, прогрев + 5 раундов):
+# TieredStopAtLevel=1 - только JIT C1; ActiveProcessorCount - видимое JVM число процессоров
+# (пулы ForkJoin/анализа, GC), не квота. Вместе против штатной JVM: wall x0,84-0,92, CPU x0,41-0,44,
+# пик RSS x0,85-0,87; диагностики совпали по всем полям. Один CPU4 не снижает CPU на 15% - отклонён.
 JVM_OPTIONS = (f"-XX:ActiveProcessorCount={min(4, os.cpu_count() or 1)}", "-XX:TieredStopAtLevel=1")
 # Сообщения движка о неполном анализе при коде возврата JVM 0
-# (строки из байткода BSL LS 0.29.0: DiagnosticComputer, ServerContext).
+# (строки исходников BSL LS 1.0.7: DefaultDiagnosticComputer, ServerContext).
 ENGINE_FAILURE_MARKERS = (
     "Diagnostic computation error.",
     "Can't parse configuration metadata",
@@ -73,6 +79,12 @@ ENGINE_FAILURE_MARKERS = (
     "Exception in thread",
     "OutOfMemoryError",
 )
+# Строка лога движка (logback Spring Boot) уровня WARN/ERROR. BSL LS 1.0.7 при коде 0 так сообщает
+# о пропущенной части анализа: битый Configuration.xml (WARN mdclasses «Can't read file», metadata
+# пусты), неверный параметр правила, ошибка чтения, сбой загрузки встроенных типов или платформы.
+ENGINE_LOG_PROBLEM = re.compile(r"^\d{4}-\d\d-\d\dT\S+\s+(?:WARN|ERROR)\s+\d+\s+---\s.*$", re.MULTILINE)
+PLATFORM_CONTEXT = re.compile(r"Loaded (\d+) platform contexts from 1C syntax helper")
+MINIMUM_JAVA = 21
 # Portable JDK 21 (Eclipse Temurin) — предпочтительный, не требует admin/PATH
 PORTABLE_JDK21 = PROJECT_ROOT / "tools" / "jdk21" / "bin" / "java.exe"
 
@@ -138,7 +150,7 @@ def find_bsl_ls_jar():
 
 def find_java():
     """Найти java.exe. Приоритет:
-    1. Portable tools/jdk21/bin/java.exe (предпочтительный — JDK 21 LTS под BSL LS 0.29+)
+    1. Portable tools/jdk21/bin/java.exe (предпочтительный — JDK 21 LTS под BSL LS 1.0.7)
     2. Portable tools/bsl_ls/jdk*/bin/java.exe (legacy location)
     3. Системная java (PATH)
     4. Стандартные пути установки Windows
@@ -230,21 +242,17 @@ def run_oscript_check(file_path, quiet=False):
 
 
 # ===== Глубокая проверка через BSL LS =====
-# BSL LS 0.29 json-reporter отдаёт severity в LSP-стиле: Error/Warning/Information/Hint.
-# Старые версии (0.24) использовали Critical/Major/Minor/Info - оставлены для совместимости.
+# BSL LS 1.0.7 json-reporter отдаёт severity lsp4j: Error/Warning/Information/Hint.
+# Имена формата 0.24 (Critical/Major/Minor/Info) и любые другие - неизвестный формат, код 3.
 SEVERITY_MAP = {
     "Error": ("ERROR  ", C.RED),
-    "Critical": ("CRIT   ", C.RED),
     "Warning": ("WARN   ", C.YEL),
-    "Major": ("MAJOR  ", C.YEL),
-    "Minor": ("MINOR  ", C.YEL),
     "Information": ("INFO   ", C.GRY),
-    "Info": ("INFO   ", C.GRY),
     "Hint": ("HINT   ", C.GRY),
 }
 
 # Порядок вывода находок (от тяжёлых к лёгким)
-SEVERITY_ORDER = ["Critical", "Error", "Warning", "Major", "Minor", "Information", "Info", "Hint"]
+SEVERITY_ORDER = ["Error", "Warning", "Information", "Hint"]
 
 
 def _try_lock(stream):
@@ -333,8 +341,14 @@ def describe_scope(src_dir, staged, standalone):
             " (рекурсивный контекст: --source-dir)")
 
 
+def metadata_expected(src_dir):
+    """В каталоге есть корень выгрузки Designer или EDT: metadata цели обязаны загрузиться."""
+    return ((src_dir / "Configuration.xml").is_file()
+            or (src_dir / "Configuration" / "Configuration.mdo").is_file())
+
+
 def target_findings(data, src_path, workspace):
-    """Сопоставляет полный путь отчёта с целью; отсутствие цели не означает успех."""
+    """(diagnostics, mdoRef) цели по полному пути отчёта; отсутствие цели не означает успех."""
     file_infos = data.get("fileinfos", data.get("fileInfos"))
     if not isinstance(file_infos, list):
         raise ValueError("В отчёте отсутствует список fileinfos")
@@ -357,7 +371,7 @@ def target_findings(data, src_path, workspace):
     for diagnostic in diagnostics:
         if not isinstance(diagnostic, dict) or diagnostic.get("severity") not in SEVERITY_MAP:
             raise ValueError("В отчёте цели отсутствует или неизвестна severity диагностики")
-    return diagnostics
+    return diagnostics, matches[0].get("mdoRef")
 
 
 def bsl_ls_command(java, jar, src_dir, tmpdir, report_dir, config=None, jvm_options=()):
@@ -381,8 +395,20 @@ def bsl_ls_command(java, jar, src_dir, tmpdir, report_dir, config=None, jvm_opti
 
 
 def engine_failure(output):
-    """Первый маркер неполного анализа в выводе JVM или None."""
-    return next((marker for marker in ENGINE_FAILURE_MARKERS if marker in output), None)
+    """Первый маркер неполного анализа или первая строка лога WARN/ERROR в выводе JVM; иначе None."""
+    marker = next((marker for marker in ENGINE_FAILURE_MARKERS if marker in output), None)
+    if marker:
+        return marker
+    line = ENGINE_LOG_PROBLEM.search(output)
+    return line.group(0).strip() if line else None
+
+
+def describe_platform(output):
+    """Источник контекста платформы 1С по выводу BSL LS 1.0.7."""
+    loaded = PLATFORM_CONTEXT.search(output)
+    if loaded:
+        return f"синтакс-помощник установленной 1С, контекстов: {loaded.group(1)}"
+    return "встроенные описания BSL LS (1С не найдена или контекст отключён)"
 
 
 def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
@@ -396,15 +422,14 @@ def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
 
     java = find_java()
     if not java:
-        print(f"{C.RED}java не найдена (нужна Java 21+ для BSL LS 0.29+){C.RESET}")
+        print(f"{C.RED}java не найдена (нужна Java {MINIMUM_JAVA}+ для BSL LS 1.0.7){C.RESET}")
         print(f"{C.YEL}Portable JDK 21 ожидается в tools/jdk21/ — см. tools/bsl_ls/README.md{C.RESET}")
         return INCOMPLETE, {"missing_java": 1}
 
     jv = java_version_major(java)
-    # BSL LS 0.29.0 скомпилирован для Java 21 (class file 65.0). Java <21 даст UnsupportedClassVersionError.
-    # Старые версии BSL LS (0.24 и ниже) работают на Java 17 — допускаем 17+, но рекомендуем 21+.
-    if jv is not None and jv < 17:
-        print(f"{C.RED}Java {jv} слишком старая. BSL LS 0.29+ требует Java 21+ (0.24 — Java 17+).{C.RESET}")
+    # Все классы BSL LS 1.0.7 и зависимостей - не новее class file 65.0 (Java 21); ниже 21 запуск невозможен.
+    if jv is not None and jv < MINIMUM_JAVA:
+        print(f"{C.RED}Java {jv} слишком старая. BSL LS 1.0.7 требует Java {MINIMUM_JAVA}+.{C.RESET}")
         print(f"{C.YEL}Установить portable JDK 21 в tools/jdk21/ — см. tools/bsl_ls/README.md{C.RESET}")
         return INCOMPLETE, {"old_java": 1}
 
@@ -448,9 +473,9 @@ def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
                 # cwd фиксирован: относительные configurationRoot и пути отчёта BSL LS
                 # разрешаются от каталога запуска JVM, а не от места вызова check_bsl.
                 result = subprocess.run(cmd, capture_output=True, text=True, cwd=PROJECT_ROOT,
-                                        encoding="utf-8", errors="replace", timeout=120)
+                                        encoding="utf-8", errors="replace", timeout=BSL_LS_TIMEOUT_SEC)
         except subprocess.TimeoutExpired:
-            print(f"{C.RED}BSL LS timeout (>120s){C.RESET}")
+            print(f"{C.RED}BSL LS timeout (>{BSL_LS_TIMEOUT_SEC}s){C.RESET}")
             return INCOMPLETE, {"bsl_ls_timeout": 1}
         except Exception as e:
             print(f"{C.RED}BSL LS error: {e}{C.RESET}")
@@ -475,16 +500,22 @@ def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
 
         try:
             data = json.loads(report_files[0].read_text(encoding="utf-8"))
-            findings = target_findings(data, src_path, PROJECT_ROOT)
+            findings, mdo_ref = target_findings(data, src_path, PROJECT_ROOT)
         except Exception as e:
             print(f"{C.RED}Отчёт BSL LS не принят: {e}{C.RESET}")
             return INCOMPLETE, {"invalid_report": 1}
+        # Без metadata mdoRef цели - URI файла: межмодульные правила молча не работают.
+        if source_dir and metadata_expected(src_dir) and (not mdo_ref or mdo_ref.startswith("file:")):
+            print(f"{C.RED}BSL LS: metadata выгрузки {src_dir} не загружены для цели "
+                  f"(mdoRef {mdo_ref!r}). Проверка неполная.{C.RESET}")
+            return INCOMPLETE, {"metadata_not_loaded": 1}
+    if not quiet:
+        print(f"      Контекст платформы: {describe_platform(output)}")
 
     # Группировка по severity
     by_sev = {}
     for d in findings:
-        sev = d.get("severity", "Info")
-        by_sev.setdefault(sev, []).append(d)
+        by_sev.setdefault(d["severity"], []).append(d)
 
     # Вывод
     if not findings:
@@ -493,12 +524,12 @@ def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
         return 0, {}
 
     print(f"      {C.BOLD}Findings: {len(findings)}{C.RESET}")
-    # Печатаем известные severity в порядке тяжести, затем любые неизвестные (на случай новых версий)
-    for sev in SEVERITY_ORDER + [s for s in by_sev if s not in SEVERITY_ORDER]:
+    # target_findings допускает только известные severity; печать в порядке тяжести.
+    for sev in SEVERITY_ORDER:
         items = by_sev.get(sev, [])
         if not items:
             continue
-        label, color = SEVERITY_MAP.get(sev, (sev, C.GRY))
+        label, color = SEVERITY_MAP[sev]
         for d in items:
             rng = d.get("range") or {}
             line0 = (rng.get("start") or {}).get("line")
@@ -509,8 +540,8 @@ def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
             print(f"      {color}{label}{C.RESET} L{line:<4} {C.BOLD}{code}{C.RESET}: {msg}")
 
     # Exit code
-    has_errors = bool(by_sev.get("Error") or by_sev.get("Critical"))
-    has_warnings = bool(by_sev.get("Warning") or by_sev.get("Major") or by_sev.get("Minor"))
+    has_errors = bool(by_sev.get("Error"))
+    has_warnings = bool(by_sev.get("Warning"))
     if has_errors:
         return 2, {sev: len(items) for sev, items in by_sev.items()}
     if has_warnings:

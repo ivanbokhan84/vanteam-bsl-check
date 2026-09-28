@@ -1,14 +1,15 @@
 {
   "bsl_ls": {
-    "version": "0.29.0",
+    "version": "1.0.7",
     "license": "LGPL-3.0-or-later",
     "upstream": "https://github.com/1c-syntax/bsl-language-server",
-    "url": "https://github.com/1c-syntax/bsl-language-server/releases/download/v0.29.0/bsl-language-server-0.29.0-exec.jar",
-    "sha256": "d6fa9ad638ba51855e260b88ad1f8ce4e602385845a4ee43600d148f779bcf0b",
-    "size": 115215320,
-    "path": "tools/bsl_ls/bsl-language-server-0.29.0-exec.jar",
+    "url": "https://github.com/1c-syntax/bsl-language-server/releases/download/v1.0.7/bsl-language-server-1.0.7-exec.jar",
+    "sha256": "9f62765edd344d66456da24c906eaf623a03c56e90e5aafee466200100909f64",
+    "size": 130181674,
+    "path": "tools/bsl_ls/bsl-language-server-1.0.7-exec.jar",
     "modified": false,
-    "java_minimum": 21
+    "java_minimum": 21,
+    "commit": "f377f95aefa16a4cf0e4d9af5b1c83800366bebc"
   },
   "jdk": {
     "version": "Temurin 21.0.11+10",
@@ -27,5 +28,6 @@
     "upstream": "https://github.com/EvilBeaver/OneScript",
     "note": "Installed separately. OneScript 2.2.0 misreads '#' inside strings of inactive #If branches; use 1.9.4 or the patched build from https://github.com/ivanbokhan84/OneScript."
   },
-  "python_minimum": "3.10"
+  "python_minimum": "3.10",
+  "platform_context": "BSL LS 1.0.7 reads the syntax helper of the newest installed 1C:Enterprise platform; without 1C it uses built-in descriptions. Tested with 8.3.27."
 }
