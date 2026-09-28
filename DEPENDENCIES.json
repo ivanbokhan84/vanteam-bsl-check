@@ -1,0 +1,31 @@
+{
+  "bsl_ls": {
+    "version": "0.29.0",
+    "license": "LGPL-3.0-or-later",
+    "upstream": "https://github.com/1c-syntax/bsl-language-server",
+    "url": "https://github.com/1c-syntax/bsl-language-server/releases/download/v0.29.0/bsl-language-server-0.29.0-exec.jar",
+    "sha256": "d6fa9ad638ba51855e260b88ad1f8ce4e602385845a4ee43600d148f779bcf0b",
+    "size": 115215320,
+    "path": "tools/bsl_ls/bsl-language-server-0.29.0-exec.jar",
+    "modified": false,
+    "java_minimum": 21
+  },
+  "jdk": {
+    "version": "Temurin 21.0.11+10",
+    "license": "GPL-2.0-only WITH Classpath-exception-2.0",
+    "upstream": "https://adoptium.net",
+    "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.11%2B10/OpenJDK21U-jdk_x64_windows_hotspot_21.0.11_10.zip",
+    "archive_sha256": "d3625e7cadf23787ea540229544b6e2ab494b3b54da1801879e583e1dfee0a64",
+    "release_file_sha256": "2516514aee90db38115b36c5e50668aeb953a4a301bc78711055834d701f6a06",
+    "path": "tools/jdk21",
+    "optional": true,
+    "note": "Portable JDK for Windows x64. Any Java 21+ on PATH works as well."
+  },
+  "oscript": {
+    "tested": "1.9.4",
+    "license": "MPL-2.0",
+    "upstream": "https://github.com/EvilBeaver/OneScript",
+    "note": "Installed separately. OneScript 2.2.0 misreads '#' inside strings of inactive #If branches; use 1.9.4 or the patched build from https://github.com/ivanbokhan84/OneScript."
+  },
+  "python_minimum": "3.10"
+}
