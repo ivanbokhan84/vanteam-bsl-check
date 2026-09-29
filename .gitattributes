@@ -6,3 +6,9 @@
 
 # 1C dumps use CRLF; OneScript reports some errors one line later on LF files
 tools/tests/fixtures/oscript_quality/*.bsl text eol=crlf
+
+# VANTEAM BSL Server check: byte-identical to its release zip, see docs/bsl-server-check/SOURCE.json
+tools/check_bsl.py text eol=crlf
+tools/bsl_new_findings.py text eol=crlf
+tools/setup_bsl_server.py text eol=crlf
+tools/tests/test_integration.py text eol=crlf
