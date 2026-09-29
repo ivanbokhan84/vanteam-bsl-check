@@ -7,7 +7,7 @@ version is independent of the BSL Language Server version.
 
 ## [2.0.0-rc.1] - 2026-09-29
 
-Release candidate. The BSL Language Server level is now VANTEAM BSL Server check 1.0.0, maintained in the BSL Server project and copied here unchanged from its release asset `vanteam-bsl-server-check-1.0.0.zip` (SHA-256 `28788b137f5d5395700d5990ca223b4a62454ccafdcbb0c31f4e8b7935ac4bb7`). The OneScript level stays `check_oscript.py`. One wrapper per engine instead of two diverging copies of the BSL LS wrapper.
+Release candidate. The BSL Language Server level is now VANTEAM BSL Server check 1.0.1, maintained in the BSL Server project and copied here unchanged from its release asset `vanteam-bsl-server-check-1.0.1.zip` (SHA-256 `1c61c22e6f50e5e5a886d528c4425dbb9a73d8566c008331b3e328990f8e7d2b`). The OneScript level stays `check_oscript.py`. One wrapper per engine instead of two diverging copies of the BSL LS wrapper.
 
 ### Changed — breaking
 - `check_bsl.py` runs BSL Language Server only. Without flags it no longer runs the legacy `oscript -check` level; `--deep` and `--all` are accepted and change nothing (`--all` prints a hint about `check_oscript.py`).
@@ -16,13 +16,10 @@ Release candidate. The BSL Language Server level is now VANTEAM BSL Server check
 ### Added
 - Several modules of one directory in one JVM with several `--target`; `--json`; a Russian-only syntax helper; AppCDS with a JDK fingerprint; a fix for a module on another drive than the checked directory (see [docs/bsl-server-check/CHANGELOG.md](docs/bsl-server-check/CHANGELOG.md)).
 - `docs/bsl-server-check/`: README, CHANGELOG, VERSION of the bundled checker and `SOURCE.json` with the SHA-256 of every copied file.
-- Tests of the bundled checker: 81 unit and 19 integration tests; with `test_check_oscript.py` 108 in total.
+- Tests of the bundled checker: 82 unit and 19 integration tests; with `test_check_oscript.py` 109 in total.
 
 ### Removed
 - `scripts/prepare_cds.py` and the own fork support of 1.2.0-rc.1 in `check_bsl.py`: `setup_bsl_server.py` and the bundled checker do it.
-
-### Known issues
-- `test_integration.RealEngineTests.test_no_oscript_is_started` fails when the path of the checkout contains `oscript` (for example `C:\Projects\Vanteam-BSL-OScript\...`): it searches the whole Java command line, which carries the project path. No OneScript process is started — the command is Java and the marker file is not created; from a path without `oscript` the test passes. Reported to the BSL Server project; the bundled files stay unchanged until its next release.
 
 ## [1.2.0-rc.1] - 2026-09-29
 

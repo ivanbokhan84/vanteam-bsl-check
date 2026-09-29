@@ -20,7 +20,7 @@ Vanteam BSL Check bundles two standalone checkers for 1C modules, one per engine
 | Level | Command | Checker | Engine and fork |
 |---|---|---|---|
 | 1. OneScript | `tools/check_oscript.py` | Vanteam OneScript check | OneScript 2.2.0-vanteam.2, `oscript -checkall` — **[ivanbokhan84/OneScript](https://github.com/ivanbokhan84/OneScript)**, tag [`v2.2.0-vanteam.2`](https://github.com/ivanbokhan84/OneScript/tree/v2.2.0-vanteam.2) |
-| 2. BSL Language Server | `tools/check_bsl.py` | VANTEAM BSL Server check 1.0.0, unchanged from its [release asset](https://github.com/ivanbokhan84/bsl-language-server/releases/tag/v1.0.7-vanteam.1) | BSL Language Server 1.0.7-vanteam.1 — **[ivanbokhan84/bsl-language-server](https://github.com/ivanbokhan84/bsl-language-server)**: persistent cache of the parsed platform syntax helper, `--target` |
+| 2. BSL Language Server | `tools/check_bsl.py` | VANTEAM BSL Server check 1.0.1, unchanged from its [release asset](https://github.com/ivanbokhan84/bsl-language-server/releases/tag/v1.0.7-vanteam.1) | BSL Language Server 1.0.7-vanteam.1 — **[ivanbokhan84/bsl-language-server](https://github.com/ivanbokhan84/bsl-language-server)**: persistent cache of the parsed platform syntax helper, `--target` |
 
 Run both after every change to a module:
 
@@ -40,7 +40,7 @@ Level 1, `check_oscript.py`:
 * **Every error of a module in one run.** `oscript -checkall` runs once for all files and reports every syntax and code generator error of a module — wrong argument count for the module's own methods, a procedure used as a function, a duplicate method (with its line), labels — instead of stopping at the first one. Unknown names of the 1C global context (`Справочники`, `Документы`, other common modules) are listed, not treated as errors.
 * **Code under `#Если Сервер` is checked too.** OneScript defines no 1C preprocessor symbols, so any OneScript check skips the body of `#Если Сервер Тогда`. `check_oscript.py` also checks a copy of every module that has `#Если`, with the directive lines blanked out (line numbers unchanged); errors found only there are marked `[ветка #Если]`.
 
-Level 2, `check_bsl.py` (VANTEAM BSL Server check 1.0.0; full description in [docs/bsl-server-check/README.md](docs/bsl-server-check/README.md)):
+Level 2, `check_bsl.py` (VANTEAM BSL Server check 1.0.1; full description in [docs/bsl-server-check/README.md](docs/bsl-server-check/README.md)):
 
 * **BSL Language Server only.** OneScript is never called from here; `--deep` and `--all` are accepted for compatibility with older calls.
 * **Fast engine start.** `tools/setup_bsl_server.py` installs the fork JAR (SHA-256 verified) outside the project, extracts it, trains and verifies an AppCDS archive, prepares a Russian-only syntax helper and the platform-context cache. On three real modules against the stock 1.0.7 engine: identical findings, wall time ×0.29–0.31, CPU ×0.25–0.30.
@@ -148,16 +148,16 @@ python -m unittest tools/tests/test_check_bsl.py tools/tests/test_integration.py
 ```
 
 * `test_check_oscript.py` — 8 tests: 19 modules with known error lines in `tools/tests/fixtures/oscript_quality`, code under `#Если Сервер`, same-named methods in two branches, an unclosed `#Если`, a duplicate method line, a typo in the manual-check list, a missing engine. Seven need OneScript 2.2.0-vanteam.2.
-* `test_check_bsl.py` and `test_integration.py` — the tests of VANTEAM BSL Server check 1.0.0: 81 unit tests and 19 integration tests on real Java 21 and the fork JAR.
+* `test_check_bsl.py` and `test_integration.py` — the tests of VANTEAM BSL Server check 1.0.1: 82 unit tests and 19 integration tests on real Java 21 and the fork JAR.
 
-Tests that need an engine are skipped when it is missing. A skipped integration test is not a pass. Run the BSL Server tests from a checkout whose path does not contain `oscript`: `test_no_oscript_is_started` looks for that word in the whole Java command line (see [CHANGELOG.md](CHANGELOG.md), known issues).
+Tests that need an engine are skipped when it is missing. A skipped integration test is not a pass.
 
 ## Repository layout
 
 ```
 tools/
   check_oscript.py              level 1: OneScript 2.2.0-vanteam.2 -checkall
-  check_bsl.py                  level 2: VANTEAM BSL Server check 1.0.0 (BSL LS only)
+  check_bsl.py                  level 2: VANTEAM BSL Server check 1.0.1 (BSL LS only)
   bsl_new_findings.py           new findings against a Git revision (BSL Server check)
   setup_bsl_server.py           installs and verifies the BSL LS engine (BSL Server check)
   config/.bsl-language-server.json    checker default configuration
@@ -174,7 +174,7 @@ The files of VANTEAM BSL Server check are copied unchanged from its release asse
 
 | Version | OneScript level | BSL LS level | Status |
 |---|---|---|---|
-| [2.0.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/2.0.0) | `check_oscript.py`, OneScript 2.2.0-vanteam.2 | VANTEAM BSL Server check 1.0.0, fork 1.0.7-vanteam.1 | release candidate |
+| [2.0.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/2.0.0) | `check_oscript.py`, OneScript 2.2.0-vanteam.2 | VANTEAM BSL Server check 1.0.1, fork 1.0.7-vanteam.1 | release candidate |
 | [1.2.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.2.0) | `check_oscript.py` | own wrapper, fork 1.0.7-vanteam.1 | superseded by 2.0.0-rc.1 |
 | [1.1.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.1.0) | `check_bsl.py`, `oscript -check` | 1.0.7 | superseded |
 | [1.0.0](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/v1.0.0) | `check_bsl.py`, `oscript -check` | 0.29.0 | stable, independently reviewed, `main` |

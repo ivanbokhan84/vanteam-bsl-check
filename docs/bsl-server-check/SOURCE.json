@@ -1,13 +1,13 @@
 {
   "product": "VANTEAM BSL Server check",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "owner": "C:/Projects/VANTEAM_BSL_Server_1.1 (BSL Server project); changes go there, not here",
-  "source": "https://github.com/ivanbokhan84/bsl-language-server/releases/download/v1.0.7-vanteam.1/vanteam-bsl-server-check-1.0.0.zip",
-  "source_sha256": "28788b137f5d5395700d5990ca223b4a62454ccafdcbb0c31f4e8b7935ac4bb7",
+  "source": "https://github.com/ivanbokhan84/bsl-language-server/releases/download/v1.0.7-vanteam.1/vanteam-bsl-server-check-1.0.1.zip",
+  "source_sha256": "1c61c22e6f50e5e5a886d528c4425dbb9a73d8566c008331b3e328990f8e7d2b",
   "files": {
     "tools/check_bsl.py": {
       "from": "check_bsl.py",
-      "sha256": "c0e06b0c58092455dd4414d8c16b0fb716476053455547c85009ff93db79212b"
+      "sha256": "32f3ae3f0b6df6a4a6c1aeed1898bc9eee3cb09f1704cb7be6a652181e447827"
     },
     "tools/bsl_new_findings.py": {
       "from": "bsl_new_findings.py",
@@ -27,7 +27,7 @@
     },
     "tools/tests/test_integration.py": {
       "from": "tests/test_integration.py",
-      "sha256": "d4ed8a74f82f2db10cdce531270b663ecebcc3a2cb9991102022b70af6c863bc"
+      "sha256": "cc15b594542888b91f357a9c853d51b690d93fc85258d15150dfbb0d3fb39681"
     },
     "tools/tests/fake_java.py": {
       "from": "tests/fake_java.py",
@@ -35,16 +35,17 @@
     },
     "docs/bsl-server-check/README.md": {
       "from": "README.md",
-      "sha256": "fead25b4a2f268b5f41cffb9488616745032626296e546a5a68ac8b7d604bb71"
+      "sha256": "4d468101841f26a3d96eecfd6f90438e96e41d6b4342cd780f6ab644418dc16e"
     },
     "docs/bsl-server-check/CHANGELOG.md": {
       "from": "CHANGELOG.md",
-      "sha256": "fbefb4d26796097d15a9961dec88774d6ef011a24e0ac109f02b3f82115b588e"
+      "sha256": "78ec6482c60bef61420105e8f3407ca8be8688902b22801d66e4ba81cac2f638"
     },
     "docs/bsl-server-check/VERSION": {
       "from": "VERSION",
-      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03"
+      "sha256": "44e161e4495cac2cf7858043e9e6418e9579f0ddcfae826f9a372622968ce066"
     }
   },
-  "unchanged": true
+  "unchanged": true,
+  "line_endings": "files listed in .gitattributes with eol=crlf are CRLF in the zip; after a clone every file equals the zip byte for byte"
 }

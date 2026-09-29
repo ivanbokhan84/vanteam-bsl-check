@@ -13,7 +13,7 @@
     "modified": true,
     "changes": "persistent platform-context cache (app.platform-context.cache.path), --target for --analyze; findings equal to upstream 1.0.7",
     "java_minimum": 21,
-    "installed_by": "tools/setup_bsl_server.py (VANTEAM BSL Server check 1.0.0) into VANTEAM_BSL_HOME; the path above is used only with BSL_LS_JAR"
+    "installed_by": "tools/setup_bsl_server.py (VANTEAM BSL Server check 1.0.1) into VANTEAM_BSL_HOME; the path above is used only with BSL_LS_JAR"
   },
   "jdk": {
     "version": "Temurin 21.0.11+10",
@@ -39,9 +39,9 @@
   "python_minimum": "3.10",
   "platform_context": "BSL LS 1.0.7 reads the syntax helper of the newest installed 1C:Enterprise platform; without 1C it uses built-in descriptions. Tested with 8.3.27.",
   "bsl_server_check": {
-    "version": "1.0.0",
-    "source": "https://github.com/ivanbokhan84/bsl-language-server/releases/download/v1.0.7-vanteam.1/vanteam-bsl-server-check-1.0.0.zip",
-    "sha256": "28788b137f5d5395700d5990ca223b4a62454ccafdcbb0c31f4e8b7935ac4bb7",
+    "version": "1.0.1",
+    "source": "https://github.com/ivanbokhan84/bsl-language-server/releases/download/v1.0.7-vanteam.1/vanteam-bsl-server-check-1.0.1.zip",
+    "sha256": "1c61c22e6f50e5e5a886d528c4425dbb9a73d8566c008331b3e328990f8e7d2b",
     "files": "docs/bsl-server-check/SOURCE.json"
   }
 }

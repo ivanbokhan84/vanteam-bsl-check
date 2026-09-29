@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-check_bsl.py - проверка BSL-модулей 1С в BSL Language Server (VANTEAM BSL Server check 1.0.0).
+check_bsl.py - проверка BSL-модулей 1С в BSL Language Server (VANTEAM BSL Server check 1.0.1).
 
 Только BSL Language Server. OneScript здесь не вызывается ни прямо, ни косвенно:
 синтаксис OneScript проверяет отдельный tools/check_oscript.py.
@@ -56,7 +56,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 PRODUCT = "VANTEAM BSL Server check"
 TOOLS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = TOOLS_DIR.parent

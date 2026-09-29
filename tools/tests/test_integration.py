@@ -9,6 +9,7 @@
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -306,7 +307,11 @@ class RealEngineTests(Integration):
         for event, command in events:
             self.assertEqual(event, 'subprocess.Popen')
             self.assertTrue(command.startswith((java, subprocess.list2cmdline([java]))), command)
-            self.assertNotIn('oscript', command.lower())
+            # Путь проекта может содержать «oscript» (например, Vanteam-BSL-OScript), поэтому проверяется не подстрока,
+            # а то, что ни один аргумент не является исполняемым файлом OneScript.
+            tokens = [t.strip('"') for t in re.findall(r'"[^"]*"|\S+', command)]
+            launched = {Path(t).name.lower() for t in tokens}
+            self.assertFalse(launched & {'oscript', 'oscript.exe', 'oscript.cmd', 'oscript.bat'}, command)
         self.assertFalse(marker.exists(), 'вызван oscript')
 
 
