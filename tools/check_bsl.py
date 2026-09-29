@@ -36,10 +36,17 @@ Exit codes:
 Требования:
   - OneScript: C:\\Program Files\\OneScript\\bin\\oscript.exe (для --quick / по умолчанию)
   - Java 21+ (portable в tools/jdk21/ или системная) + tools/bsl_ls/bsl-language-server-*.jar (для --deep / --all);
-    релиз проверен на BSL LS 1.0.7
+    релиз проверен на JAR форка 1.0.7-vanteam.1 (https://github.com/ivanbokhan84/bsl-language-server)
+    и штатном BSL LS 1.0.7
   - env BSL_LS_JAR — переопределение пути к jar (опционально)
+  - env BSL_LS_CACHE — каталог кэша справки платформы для JAR форка (по умолчанию tools/bsl_ls/_cache)
+  - env BSL_LS_XMX — размер кучи JVM (по умолчанию 512m, для области от 200 файлов - 1g)
 BSL LS 1.0.7 по умолчанию берёт контекст платформы из синтакс-помощника установленной 1С
 (самая свежая версия на машине), без неё - встроенные описания; источник печатается в выводе.
+JAR форка хранит разобранную справку в постоянном кэше (попадание вдвое сокращает запуск) и
+считает диагностики только для цели (--target), находки те же, что у штатного 1.0.7.
+Всегда: --silent; -XX:+ExitOnOutOfMemoryError (нехватка памяти - код JVM 3, у обёртки - 3).
+AppCDS подключается, если его подготовил scripts/prepare_cds.py для этих JAR и JDK.
 """
 import argparse
 import glob
@@ -69,7 +76,17 @@ BSL_LS_TIMEOUT_SEC = 120
 # TieredStopAtLevel=1 - только JIT C1; ActiveProcessorCount - видимое JVM число процессоров
 # (пулы ForkJoin/анализа, GC), не квота. Вместе против штатной JVM: wall x0,84-0,92, CPU x0,41-0,44,
 # пик RSS x0,85-0,87; диагностики совпали по всем полям. Один CPU4 не снижает CPU на 15% - отклонён.
-JVM_OPTIONS = (f"-XX:ActiveProcessorCount={min(4, os.cpu_count() or 1)}", "-XX:TieredStopAtLevel=1")
+# ExitOnOutOfMemoryError: без него форк при нехватке кучи пишет ERROR и выходит с 0, а штатный
+# 1.0.7 может разбирать справку повторно; с ним JVM завершается с кодом 3 за секунды.
+JVM_OPTIONS = (f"-XX:ActiveProcessorCount={min(4, os.cpu_count() or 1)}", "-XX:TieredStopAtLevel=1",
+               "-XX:+ExitOnOutOfMemoryError")
+# Куча: 512m хватает модулю и мини-конфигурации; штатный 1.0.7 на 596 модулях при 512m падает
+# с OutOfMemoryError, при 1g проходит (замер BSL Server 29.09.2026).
+LARGE_SCOPE_FILES = 200
+LARGE_SCOPE_TIMEOUT_SEC = 600
+# JAR форка ivanbokhan84/bsl-language-server: постоянный кэш справки платформы и --target.
+FORK_JAR = re.compile(r"-vanteam\.\d+-exec\.jar$", re.IGNORECASE)
+PLATFORM_CACHE = re.compile(r"Platform context cache (hit|miss|written|unreadable|write failed|key failed)")
 # Сообщения движка о неполном анализе при коде возврата JVM 0
 # (строки исходников BSL LS 1.0.7: DefaultDiagnosticComputer, ServerContext).
 ENGINE_FAILURE_MARKERS = (
@@ -121,13 +138,61 @@ def find_oscript():
 
 
 def _jar_version_key(path_str):
-    """Извлечь tuple версии из имени bsl-language-server-X.Y.Z-exec.jar для сортировки."""
-    import re
+    """Tuple версии из имени bsl-language-server-X.Y.Z[-vanteam.N]-exec.jar для сортировки.
+
+    JAR форка той же базовой версии идёт после штатного: его находки те же, запуск дешевле.
+    """
     name = Path(path_str).name
-    m = re.search(r"bsl-language-server-(\d+)\.(\d+)\.(\d+)", name)
+    m = re.search(r"bsl-language-server-(\d+)\.(\d+)\.(\d+)(?:-vanteam\.(\d+))?-exec\.jar$", name)
     if not m:
-        return (0, 0, 0)
-    return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        return (0, 0, 0, 0, 0)
+    fork = m.group(4)
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3)), 1 if fork else 0, int(fork or 0))
+
+
+def is_fork_jar(jar):
+    """JAR форка ivanbokhan84/bsl-language-server: понимает --target и кэш справки платформы."""
+    return bool(FORK_JAR.search(Path(jar).name))
+
+
+def platform_cache_dir():
+    """Каталог кэша справки форка: BSL_LS_CACHE или ASCII-путь рядом с JAR, как java.io.tmpdir."""
+    return Path(os.environ.get("BSL_LS_CACHE") or BSL_LS_DIR / "_cache")
+
+
+def heap_option(file_count):
+    """-Xmx по env BSL_LS_XMX или по числу файлов области."""
+    value = os.environ.get("BSL_LS_XMX")
+    if value:
+        return f"-Xmx{value}"
+    return "-Xmx1g" if file_count >= LARGE_SCOPE_FILES else "-Xmx512m"
+
+
+def cds_stamp(jar, java):
+    """Отметка JAR и сборки JDK для AppCDS: архив годен только для них, иначе JVM молча без него."""
+    try:
+        java_exe = Path(shutil.which(java) or java).resolve()
+        modules = java_exe.parent.parent / "lib" / "modules"
+        jar_stat, modules_stat = Path(jar).stat(), modules.stat()
+    except (OSError, TypeError):
+        return None
+    return {"jar": Path(jar).name, "jar_size": jar_stat.st_size, "jar_mtime_ns": jar_stat.st_mtime_ns,
+            "java": str(java_exe), "jdk_modules_size": modules_stat.st_size,
+            "jdk_modules_mtime_ns": modules_stat.st_mtime_ns}
+
+
+def cds_layout(jar, java):
+    """(архив .jsa, распакованный JAR), если scripts/prepare_cds.py подготовил их для этих JAR и JDK."""
+    base = BSL_LS_DIR / "cds" / Path(jar).stem
+    archive, extracted, stamp_file = base / "bslls.jsa", base / Path(jar).name, base / "stamp.json"
+    if not (archive.is_file() and extracted.is_file() and stamp_file.is_file()):
+        return None
+    try:
+        stamp = json.loads(stamp_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    current = cds_stamp(jar, java)
+    return (archive, extracted) if current is not None and stamp == current else None
 
 
 def find_bsl_ls_jar():
@@ -374,20 +439,38 @@ def target_findings(data, src_path, workspace):
     return diagnostics, matches[0].get("mdoRef")
 
 
-def bsl_ls_command(java, jar, src_dir, tmpdir, report_dir, config=None, jvm_options=()):
-    """Команда BSL LS --analyze."""
+def bsl_ls_command(java, jar, src_dir, tmpdir, report_dir, config=None, jvm_options=(),
+                   heap="-Xmx512m", target=None, cache_dir=None, cds=None):
+    """Команда BSL LS --analyze.
+
+    target - --target форка: диагностики только цели, контекст - вся область;
+    cache_dir - кэш справки платформы форка; cds - (архив, распакованный JAR) AppCDS.
+    """
     cmd = [
         java,
         # JLine native lib BSL LS падает на кириллических путях в дефолтном Java tmpdir
         # (например C:\Users\Пользователь\AppData\Local\Temp) — форсируем ASCII-путь рядом с jar.
         f"-Djava.io.tmpdir={tmpdir}",
-        "-Xmx512m",
+        heap,
         *jvm_options,
+    ]
+    if cds is not None:
+        archive, jar = cds
+        cmd.append(f"-XX:SharedArchiveFile={archive}")
+    if cache_dir is not None:
+        cmd.append(f"-Dapp.platform-context.cache.path={cache_dir}")
+    cmd += [
         "-jar", str(jar),
         "--analyze",
         "--srcDir", str(src_dir),
+    ]
+    if target is not None:
+        cmd += ["--target", str(target)]
+    cmd += [
         "--reporter", "json",
         "--outputDir", str(report_dir),
+        # Без --silent JLine при Git usr/bin в PATH запускает десятки дочерних процессов.
+        "--silent",
     ]
     if config is not None:
         cmd += ["--configuration", str(config)]
@@ -406,9 +489,18 @@ def engine_failure(output):
 def describe_platform(output):
     """Источник контекста платформы 1С по выводу BSL LS 1.0.7."""
     loaded = PLATFORM_CONTEXT.search(output)
+    cache = PLATFORM_CACHE.search(output)
+    cache_note = f", кэш справки: {cache.group(1)}" if cache else ""
     if loaded:
-        return f"синтакс-помощник установленной 1С, контекстов: {loaded.group(1)}"
-    return "встроенные описания BSL LS (1С не найдена или контекст отключён)"
+        return f"синтакс-помощник установленной 1С, контекстов: {loaded.group(1)}{cache_note}"
+    return "встроенные описания BSL LS (1С не найдена или контекст отключён)" + cache_note
+
+
+def scope_file_count(src_dir, staged, standalone):
+    """Число файлов .bsl/.os области: от него зависят куча и таймаут."""
+    if standalone or staged is not None:
+        return len(staged or [])
+    return sum(1 for p in src_dir.rglob("*") if p.suffix.lower() in SOURCE_SUFFIXES)
 
 
 def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
@@ -417,7 +509,7 @@ def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
     if not jar:
         print(f"{C.RED}bsl-language-server-*-exec.jar не найден в {BSL_LS_DIR} "
               f"или по BSL_LS_JAR={os.environ.get('BSL_LS_JAR', '')}{C.RESET}")
-        print(f"{C.YEL}Скачать: https://github.com/1c-syntax/bsl-language-server/releases/latest{C.RESET}")
+        print(f"{C.YEL}Скачать с проверкой SHA-256: python scripts/fetch_dependencies.py{C.RESET}")
         return INCOMPLETE, {"missing_jar": 1}
 
     java = find_java()
@@ -439,9 +531,17 @@ def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
     except ValueError as error:
         print(f"{C.RED}{error}{C.RESET}")
         return INCOMPLETE, {"invalid_source": 1}
+    fork = is_fork_jar(jar)
+    file_count = scope_file_count(src_dir, staged, standalone)
+    heap = heap_option(file_count)
+    timeout = LARGE_SCOPE_TIMEOUT_SEC if file_count >= LARGE_SCOPE_FILES else BSL_LS_TIMEOUT_SEC
+    cache_dir = platform_cache_dir() if fork else None
+    cds = cds_layout(jar, java)
     if not quiet:
         print(f"{C.CYN}[2/2] BSL Language Server{C.RESET} (Java {jv}, jar {jar})")
         print(f"      Область: {describe_scope(src_dir, staged, standalone)}")
+        print(f"      JVM: {heap}, AppCDS: {'да' if cds else 'нет'}"
+              + (f"; форк: --target, кэш справки {cache_dir}" if fork else ""))
 
     bsl_tmp_root = BSL_LS_DIR / "_tmp"
     bsl_tmp_root.mkdir(parents=True, exist_ok=True)
@@ -466,16 +566,18 @@ def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
             except (OSError, ValueError, TypeError) as error:
                 print(f"{C.RED}Конфигурация BSL LS не принята: {error}{C.RESET}")
                 return INCOMPLETE, {"invalid_configuration": 1}
-        cmd = bsl_ls_command(java, jar, src_dir, tmpdir, report_dir,
-                             config, JVM_OPTIONS)
+        if cache_dir is not None:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+        cmd = bsl_ls_command(java, jar, src_dir, tmpdir, report_dir, config, JVM_OPTIONS,
+                             heap=heap, target=src_path if fork else None, cache_dir=cache_dir, cds=cds)
         try:
             with analysis_lock():
                 # cwd фиксирован: относительные configurationRoot и пути отчёта BSL LS
                 # разрешаются от каталога запуска JVM, а не от места вызова check_bsl.
                 result = subprocess.run(cmd, capture_output=True, text=True, cwd=PROJECT_ROOT,
-                                        encoding="utf-8", errors="replace", timeout=BSL_LS_TIMEOUT_SEC)
+                                        encoding="utf-8", errors="replace", timeout=timeout)
         except subprocess.TimeoutExpired:
-            print(f"{C.RED}BSL LS timeout (>{BSL_LS_TIMEOUT_SEC}s){C.RESET}")
+            print(f"{C.RED}BSL LS timeout (>{timeout}s){C.RESET}")
             return INCOMPLETE, {"bsl_ls_timeout": 1}
         except Exception as e:
             print(f"{C.RED}BSL LS error: {e}{C.RESET}")
@@ -484,6 +586,8 @@ def run_bsl_ls_check(file_path, quiet=False, source_dir=None, standalone=False):
         output = (result.stdout or "") + (result.stderr or "")
         if result.returncode != 0:
             print(f"{C.RED}BSL LS завершился с кодом {result.returncode}{C.RESET}")
+            if "OutOfMemoryError" in output:
+                print(f"{C.YEL}Не хватило кучи {heap}: задайте больше через BSL_LS_XMX, например 2g.{C.RESET}")
             print(output[-1000:])
             return INCOMPLETE, {"bsl_ls_failed": 1}
         marker = engine_failure(output)

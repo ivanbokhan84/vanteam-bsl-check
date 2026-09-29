@@ -6,6 +6,8 @@ tools/jdk21/
 # Runtime state
 _temp/
 tools/bsl_ls/_tmp/
+tools/bsl_ls/_cache/
+tools/bsl_ls/cds/
 
 # Python
 __pycache__/

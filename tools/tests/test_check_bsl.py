@@ -203,6 +203,75 @@ class CheckerTests(unittest.TestCase):
         self.assertTrue(any(arg.startswith('-XX:ActiveProcessorCount=') for arg in cmd))
         self.assertLess(cmd.index('-XX:TieredStopAtLevel=1'), cmd.index('-jar'))
 
+    def test_fork_jar_is_preferred_over_same_upstream_version(self):
+        for name in ('bsl-language-server-0.29.0-exec.jar', 'bsl-language-server-1.0.7-exec.jar',
+                     'bsl-language-server-1.0.7-vanteam.1-exec.jar'):
+            (self.root / name).write_bytes(b'')
+        with patch.dict(os.environ, {'BSL_LS_JAR': ''}):
+            self.assertEqual(Path(FIND_JAR()).name, 'bsl-language-server-1.0.7-vanteam.1-exec.jar')
+        (self.root / 'bsl-language-server-1.0.8-exec.jar').write_bytes(b'')
+        with patch.dict(os.environ, {'BSL_LS_JAR': ''}):
+            self.assertEqual(Path(FIND_JAR()).name, 'bsl-language-server-1.0.8-exec.jar')
+
+    def test_fork_command_targets_module_and_uses_platform_cache(self):
+        fork = 'bsl-language-server-1.0.7-vanteam.1-exec.jar'
+        with patch.object(checker, 'find_bsl_ls_jar', return_value=fork), \
+                patch.dict(os.environ, {'BSL_LS_CACHE': ''}):
+            self.assertEqual(self.run_report(self.report()), (0, {}))
+        cmd = self.calls[0][0]
+        self.assertEqual(Path(cmd[cmd.index('--target') + 1]), self.target)
+        self.assertIn(f'-Dapp.platform-context.cache.path={self.root / "_cache"}', cmd)
+        self.assertTrue((self.root / '_cache').is_dir())
+        for arg in ('--silent', '-XX:+ExitOnOutOfMemoryError', '-Xmx512m'):
+            self.assertIn(arg, cmd)
+        self.assertLess(cmd.index('-Dapp.platform-context.cache.path=' + str(self.root / '_cache')),
+                        cmd.index('-jar'))
+
+    def test_upstream_command_has_no_target_or_cache(self):
+        self.run_report(self.report())
+        cmd = self.calls[0][0]
+        self.assertNotIn('--target', cmd)
+        self.assertFalse(any(arg.startswith('-Dapp.platform-context') for arg in cmd))
+        self.assertIn('--silent', cmd)
+
+    def test_heap_follows_scope_size_and_override(self):
+        (self.source / 'Second.bsl').write_text('// сосед\n', encoding='utf-8')
+        with patch.object(checker, 'LARGE_SCOPE_FILES', 2), patch.dict(os.environ, {'BSL_LS_XMX': ''}):
+            self.run_report(self.report())
+        self.assertIn('-Xmx1g', self.calls[-1][0])
+        with patch.dict(os.environ, {'BSL_LS_XMX': '2g'}):
+            self.run_report(self.report())
+        self.assertIn('-Xmx2g', self.calls[-1][0])
+        self.assertNotIn('-Xmx512m', self.calls[-1][0])
+
+    def test_out_of_memory_exit_is_incomplete(self):
+        result = self.run_report(self.report(), code=3,
+                                 output='Terminating due to java.lang.OutOfMemoryError: Java heap space')
+        self.assertEqual(result[0], checker.INCOMPLETE)
+
+    def test_cds_archive_is_used_only_with_matching_stamp(self):
+        base = self.root / 'cds' / 'test'
+        base.mkdir(parents=True)
+        (base / 'bslls.jsa').write_bytes(b'')
+        (base / 'test.jar').write_bytes(b'')
+        stamp = {'jar': 'test.jar', 'jar_size': 1}
+        (base / 'stamp.json').write_text(json.dumps(stamp), encoding='utf-8')
+        with patch.object(checker, 'cds_stamp', return_value=stamp):
+            self.assertEqual(self.run_report(self.report()), (0, {}))
+        cmd = self.calls[-1][0]
+        self.assertIn(f'-XX:SharedArchiveFile={base / "bslls.jsa"}', cmd)
+        self.assertEqual(Path(cmd[cmd.index('-jar') + 1]), base / 'test.jar')
+        with patch.object(checker, 'cds_stamp', return_value={**stamp, 'jar_size': 2}):
+            self.run_report(self.report())
+        cmd = self.calls[-1][0]
+        self.assertFalse(any(arg.startswith('-XX:SharedArchiveFile') for arg in cmd))
+        self.assertEqual(cmd[cmd.index('-jar') + 1], 'test.jar')
+
+    def test_platform_cache_status_is_reported(self):
+        hit = LOG_PLATFORM.replace('Loaded 2495 platform contexts from 1C syntax helper',
+                                   'Platform context cache hit: D:/cache/platform-context-1.bin (12 ms)')
+        self.assertIn('кэш справки: hit', checker.describe_platform(LOG_PLATFORM + '\n' + hit))
+
     def test_busy_lock_is_incomplete(self):
         @contextlib.contextmanager
         def busy(*args, **kwargs):
