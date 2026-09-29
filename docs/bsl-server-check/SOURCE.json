@@ -1,0 +1,50 @@
+{
+  "product": "VANTEAM BSL Server check",
+  "version": "1.0.0",
+  "owner": "C:/Projects/VANTEAM_BSL_Server_1.1 (BSL Server project); changes go there, not here",
+  "source": "https://github.com/ivanbokhan84/bsl-language-server/releases/download/v1.0.7-vanteam.1/vanteam-bsl-server-check-1.0.0.zip",
+  "source_sha256": "28788b137f5d5395700d5990ca223b4a62454ccafdcbb0c31f4e8b7935ac4bb7",
+  "files": {
+    "tools/check_bsl.py": {
+      "from": "check_bsl.py",
+      "sha256": "c0e06b0c58092455dd4414d8c16b0fb716476053455547c85009ff93db79212b"
+    },
+    "tools/bsl_new_findings.py": {
+      "from": "bsl_new_findings.py",
+      "sha256": "4295536889caa506f64983209deb6d0841f19612bca7b712fbd76e54b123ebee"
+    },
+    "tools/setup_bsl_server.py": {
+      "from": "setup_bsl_server.py",
+      "sha256": "9c6299cb85cade9f4a2a599244dc76a623902af66a8ce111abfca69fc0a37c9a"
+    },
+    "tools/config/.bsl-language-server.json": {
+      "from": "config/.bsl-language-server.json",
+      "sha256": "aa0942c87aad5985f67c1e5a5d417cdca50e614a4ef636d18809b24fcfe63fd7"
+    },
+    "tools/tests/test_check_bsl.py": {
+      "from": "tests/test_check_bsl.py",
+      "sha256": "865772650cee34360c254b5fd419646712cd649bfe8ce8ab0ae7af4db835b1f0"
+    },
+    "tools/tests/test_integration.py": {
+      "from": "tests/test_integration.py",
+      "sha256": "d4ed8a74f82f2db10cdce531270b663ecebcc3a2cb9991102022b70af6c863bc"
+    },
+    "tools/tests/fake_java.py": {
+      "from": "tests/fake_java.py",
+      "sha256": "456d05f2ce146b849fc27cb348f2cefb5ac962c85d168540f400522ffed9ce8d"
+    },
+    "docs/bsl-server-check/README.md": {
+      "from": "README.md",
+      "sha256": "fead25b4a2f268b5f41cffb9488616745032626296e546a5a68ac8b7d604bb71"
+    },
+    "docs/bsl-server-check/CHANGELOG.md": {
+      "from": "CHANGELOG.md",
+      "sha256": "fbefb4d26796097d15a9961dec88774d6ef011a24e0ac109f02b3f82115b588e"
+    },
+    "docs/bsl-server-check/VERSION": {
+      "from": "VERSION",
+      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03"
+    }
+  },
+  "unchanged": true
+}
