@@ -12,7 +12,8 @@
     "path": "tools/bsl_ls/bsl-language-server-1.0.7-vanteam.1-exec.jar",
     "modified": true,
     "changes": "persistent platform-context cache (app.platform-context.cache.path), --target for --analyze; findings equal to upstream 1.0.7",
-    "java_minimum": 21
+    "java_minimum": 21,
+    "installed_by": "tools/setup_bsl_server.py (VANTEAM BSL Server check 1.0.0) into VANTEAM_BSL_HOME; the path above is used only with BSL_LS_JAR"
   },
   "jdk": {
     "version": "Temurin 21.0.11+10",
@@ -36,5 +37,11 @@
     "note": "Built separately from the fork, binaries are not published. The legacy level of check_bsl.py (oscript -check, tested with 1.9.4) uses the installed OneScript from C:/Program Files/OneScript or PATH."
   },
   "python_minimum": "3.10",
-  "platform_context": "BSL LS 1.0.7 reads the syntax helper of the newest installed 1C:Enterprise platform; without 1C it uses built-in descriptions. Tested with 8.3.27."
+  "platform_context": "BSL LS 1.0.7 reads the syntax helper of the newest installed 1C:Enterprise platform; without 1C it uses built-in descriptions. Tested with 8.3.27.",
+  "bsl_server_check": {
+    "version": "1.0.0",
+    "source": "https://github.com/ivanbokhan84/bsl-language-server/releases/download/v1.0.7-vanteam.1/vanteam-bsl-server-check-1.0.0.zip",
+    "sha256": "28788b137f5d5395700d5990ca223b4a62454ccafdcbb0c31f4e8b7935ac4bb7",
+    "files": "docs/bsl-server-check/SOURCE.json"
+  }
 }

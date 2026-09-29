@@ -5,6 +5,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/). The wrapper
 version is independent of the BSL Language Server version.
 
+## [2.0.0-rc.1] - 2026-09-29
+
+Release candidate. The BSL Language Server level is now VANTEAM BSL Server check 1.0.0, maintained in the BSL Server project and copied here unchanged from its release asset `vanteam-bsl-server-check-1.0.0.zip` (SHA-256 `28788b137f5d5395700d5990ca223b4a62454ccafdcbb0c31f4e8b7935ac4bb7`). The OneScript level stays `check_oscript.py`. One wrapper per engine instead of two diverging copies of the BSL LS wrapper.
+
+### Changed — breaking
+- `check_bsl.py` runs BSL Language Server only. Without flags it no longer runs the legacy `oscript -check` level; `--deep` and `--all` are accepted and change nothing (`--all` prints a hint about `check_oscript.py`).
+- The engine is installed once per machine by `tools/setup_bsl_server.py` into `VANTEAM_BSL_HOME` (default `%LOCALAPPDATA%\vanteam-bsl-server`) instead of `tools/bsl_ls`. Environment variables are `VANTEAM_BSL_*`; `BSL_LS_CACHE` and `BSL_LS_XMX` of 1.2.0-rc.1 are gone.
+
+### Added
+- Several modules of one directory in one JVM with several `--target`; `--json`; a Russian-only syntax helper; AppCDS with a JDK fingerprint; a fix for a module on another drive than the checked directory (see [docs/bsl-server-check/CHANGELOG.md](docs/bsl-server-check/CHANGELOG.md)).
+- `docs/bsl-server-check/`: README, CHANGELOG, VERSION of the bundled checker and `SOURCE.json` with the SHA-256 of every copied file.
+- Tests of the bundled checker: 81 unit and 19 integration tests; with `test_check_oscript.py` 108 in total.
+
+### Removed
+- `scripts/prepare_cds.py` and the own fork support of 1.2.0-rc.1 in `check_bsl.py`: `setup_bsl_server.py` and the bundled checker do it.
+
 ## [1.2.0-rc.1] - 2026-09-29
 
 Release candidate. Engines: BSL Language Server fork [1.0.7-vanteam.1](https://github.com/ivanbokhan84/bsl-language-server/releases/tag/v1.0.7-vanteam.1) and OneScript fork [2.2.0-vanteam.2](https://github.com/ivanbokhan84/OneScript/tree/v2.2.0-vanteam.2). Includes the changes of 1.1.0-rc.1. Independent review pending.
@@ -69,3 +85,4 @@ First public release. Engine: BSL Language Server 0.29.0, unmodified.
 
 [1.2.0-rc.1]: https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.2.0
 [1.1.0-rc.1]: https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.1.0
+[2.0.0-rc.1]: https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/2.0.0
