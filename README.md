@@ -20,7 +20,7 @@ Vanteam BSL Check is a set of small Python wrappers around two engines. Each eng
 | Level | Command | Engine | Fork |
 |---|---|---|---|
 | 1. OneScript | `tools/check_oscript.py` | OneScript 2.2.0-vanteam.2, `oscript -checkall` | **[ivanbokhan84/OneScript](https://github.com/ivanbokhan84/OneScript)** — preprocessor fix and `-checkall`, tag [`v2.2.0-vanteam.2`](https://github.com/ivanbokhan84/OneScript/tree/v2.2.0-vanteam.2) |
-| 2. BSL Language Server | `tools/check_bsl.py --deep` | BSL Language Server 0.29.0, `--analyze` | **[ivanbokhan84/bsl-language-server](https://github.com/ivanbokhan84/bsl-language-server)** — fork of 1.0.7 with a persistent platform-context cache and `--target`, release [`v1.0.7-vanteam.1`](https://github.com/ivanbokhan84/bsl-language-server/releases/tag/v1.0.7-vanteam.1); used by [1.2.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.2.0), `main` stays on the upstream 0.29.0 JAR |
+| 2. BSL Language Server | `tools/check_bsl.py --deep` | BSL Language Server 0.29.0, `--analyze` | **[ivanbokhan84/bsl-language-server](https://github.com/ivanbokhan84/bsl-language-server)** — fork of 1.0.7 with a persistent platform-context cache and `--target`, release [`v1.0.7-vanteam.1`](https://github.com/ivanbokhan84/bsl-language-server/releases/tag/v1.0.7-vanteam.1); [2.0.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/2.0.0) runs it through VANTEAM BSL Server check 1.0.1, `main` stays on the upstream 0.29.0 JAR |
 
 Run both after every change to a module:
 
@@ -172,7 +172,8 @@ DEPENDENCIES.json               pinned versions, URLs and SHA-256
 
 | Version | OneScript level | BSL LS | Status |
 |---|---|---|---|
-| [1.2.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.2.0) | `check_oscript.py`, OneScript 2.2.0-vanteam.2 | fork 1.0.7-vanteam.1 | release candidate: fork JAR with `--target`, platform-context cache, optional AppCDS; one module 7 s against 24 s with upstream 1.0.7, identical findings; independent review pending |
+| [2.0.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/2.0.0) | `check_oscript.py`, OneScript 2.2.0-vanteam.2 | fork 1.0.7-vanteam.1 through VANTEAM BSL Server check 1.0.1 | release candidate, breaking: `check_bsl.py` runs BSL LS only, the engine is installed once per machine by `tools/setup_bsl_server.py`; the checker is copied unchanged from its release zip, SHA-256 of every file in `docs/bsl-server-check/SOURCE.json`; 109 tests pass; independent review pending |
+| [1.2.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.2.0) | `check_oscript.py`, OneScript 2.2.0-vanteam.2 | fork 1.0.7-vanteam.1 | superseded by 2.0.0-rc.1: own fork support in `check_bsl.py`; one module 7 s against 24 s with upstream 1.0.7, identical findings |
 | `main` | `check_oscript.py`, OneScript 2.2.0-vanteam.2 | 0.29.0 | 1.0.0 with `check_oscript.py`, see [CHANGELOG.md](CHANGELOG.md) |
 | [1.0.0](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/v1.0.0) | `check_bsl.py`, `oscript -check` | 0.29.0 | stable, independently reviewed |
 | [1.1.0-rc.1](https://github.com/ivanbokhan84/vanteam-bsl-check/tree/release/1.1.0) | `check_bsl.py`, `oscript -check` | 1.0.7 | release candidate, independent review pending |

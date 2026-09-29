@@ -172,8 +172,8 @@ footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--line)
       <div class="links"><a href="https://github.com/ivanbokhan84/OneScript">Fork ivanbokhan84/OneScript</a><a href="https://ivanbokhan84.github.io/OneScript/">Measurements</a></div></div>
     <div class="card"><h3>2. BSL Language Server — <code>tools/check_bsl.py --deep</code></h3>
       <p class="note">Engine: BSL Language Server 0.29.0 (1.0.7 in the 1.1.0 release candidate), <code>--analyze</code>: cognitive complexity, deprecated methods, unused variables, cross-module calls. Exit code 3 when the analysis did not happen.</p>
-      <p class="note">The Vanteam fork of BSL Language Server 1.0.7, release v1.0.7-vanteam.1, keeps the parsed platform syntax helper in a persistent cache and checks only the target module (<code>--target</code>). Release candidate 1.2.0-rc.1 runs it: one module 7 s against 24 s with the upstream 1.0.7 JAR, identical findings.</p>
-      <div class="links"><a href="https://github.com/ivanbokhan84/bsl-language-server">Fork ivanbokhan84/bsl-language-server</a><a href="https://github.com/ivanbokhan84/vanteam-bsl-check/releases/tag/v1.2.0-rc.1">Release 1.2.0-rc.1</a></div></div>
+      <p class="note">The Vanteam fork of BSL Language Server 1.0.7, release v1.0.7-vanteam.1, keeps the parsed platform syntax helper in a persistent cache and checks only the target module (<code>--target</code>): one module 7 s against 24 s with the upstream 1.0.7 JAR, identical findings. Release candidate 2.0.0-rc.1 runs it through VANTEAM BSL Server check 1.0.1: BSL LS only, several modules in one JVM, the engine installed once per machine.</p>
+      <div class="links"><a href="https://github.com/ivanbokhan84/bsl-language-server">Fork ivanbokhan84/bsl-language-server</a><a href="https://github.com/ivanbokhan84/vanteam-bsl-check/releases/tag/v2.0.0-rc.1">Release 2.0.0-rc.1</a></div></div>
   </div>
   <pre class="block">python tools/check_oscript.py path/to/Module.bsl          # 1. OneScript
 python tools/check_bsl.py path/to/Module.bsl --deep       # 2. BSL Language Server</pre>
