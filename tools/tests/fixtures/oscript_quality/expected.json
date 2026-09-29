@@ -1,0 +1,133 @@
+{
+ "syntax_missing_endif.bsl": {
+  "kind": "syntax",
+  "lines": [
+   8
+  ],
+  "note": "нет КонецЕсли"
+ },
+ "syntax_missing_then.bsl": {
+  "kind": "syntax",
+  "lines": [
+   7
+  ],
+  "note": "нет Тогда"
+ },
+ "syntax_unclosed_paren.bsl": {
+  "kind": "syntax",
+  "lines": [
+   6
+  ],
+  "note": "незакрытая скобка"
+ },
+ "syntax_unclosed_string.bsl": {
+  "kind": "syntax",
+  "lines": [
+   6,
+   7
+  ],
+  "note": "незакрытая строка"
+ },
+ "syntax_missing_endprocedure.bsl": {
+  "kind": "syntax",
+  "lines": [
+   6,
+   7
+  ],
+  "note": "нет КонецПроцедуры"
+ },
+ "syntax_wrong_end.bsl": {
+  "kind": "syntax",
+  "lines": [
+   7
+  ],
+  "note": "КонецФункции у процедуры"
+ },
+ "syntax_missing_semicolon.bsl": {
+  "kind": "syntax",
+  "lines": [
+   6
+  ],
+  "note": "нет точки с запятой"
+ },
+ "syntax_try_without_except.bsl": {
+  "kind": "syntax",
+  "lines": [
+   8
+  ],
+  "note": "Попытка без Исключение"
+ },
+ "syntax_missing_endloop.bsl": {
+  "kind": "syntax",
+  "lines": [
+   8
+  ],
+  "note": "нет КонецЦикла"
+ },
+ "syntax_bad_expression.bsl": {
+  "kind": "syntax",
+  "lines": [
+   6
+  ],
+  "note": "незаконченное выражение"
+ },
+ "codegen_duplicate_method.bsl": {
+  "kind": "codegen",
+  "lines": [
+   8
+  ],
+  "note": "метод объявлен дважды"
+ },
+ "codegen_too_many_args.bsl": {
+  "kind": "codegen",
+  "lines": [
+   9
+  ],
+  "note": "лишний аргумент своего метода"
+ },
+ "codegen_proc_as_function.bsl": {
+  "kind": "codegen",
+  "lines": [
+   9
+  ],
+  "note": "процедура вызвана как функция"
+ },
+ "codegen_undefined_label.bsl": {
+  "kind": "codegen",
+  "lines": [
+   6
+  ],
+  "note": "переход на несуществующую метку"
+ },
+ "multi_two_syntax_errors.bsl": {
+  "kind": "multi",
+  "lines": [
+   6,
+   10
+  ],
+  "note": "две синтаксические ошибки"
+ },
+ "multi_syntax_and_codegen.bsl": {
+  "kind": "multi",
+  "lines": [
+   9,
+   13
+  ],
+  "note": "ошибка генератора и синтаксиса"
+ },
+ "valid_typical.bsl": {
+  "kind": "valid",
+  "lines": [],
+  "note": "типичные конструкции 1С"
+ },
+ "valid_preprocessor_strings.bsl": {
+  "kind": "valid",
+  "lines": [],
+  "note": "# в строке неактивной ветки"
+ },
+ "valid_multiline_query.bsl": {
+  "kind": "valid",
+  "lines": [],
+  "note": "многострочный текст запроса"
+ }
+}

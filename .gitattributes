@@ -3,3 +3,6 @@
 *.zip binary
 *.exe binary
 *.dll binary
+
+# 1C dumps use CRLF; OneScript reports some errors one line later on LF files
+tools/tests/fixtures/oscript_quality/*.bsl text eol=crlf
