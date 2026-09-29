@@ -149,8 +149,8 @@ footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--line)
       <span class="chip"><b>0</b>clean</span><span class="chip"><b>1</b>warnings</span><span class="chip"><b>2</b>errors</span><span class="chip"><b>3</b>not completed</span>
     </div>
     <div class="stats">
-      <div class="stat"><b>43 / 43</b><span>tests pass in 1.0.0, four of them on real Java, BSL LS, OneScript and Git</span></div>
-      <div class="stat"><b>56 / 56</b><span>tests pass in the 1.1.0 release candidate, eleven integration</span></div>
+      <div class="stat"><b>109 / 109</b><span>tests pass in 2.0.0: 82 unit and 19 integration of the BSL Server check, 8 of check_oscript.py</span></div>
+      <div class="stat"><b>×0.17–0.38</b><span>wall time of the 2.0.0 BSL LS level against 1.1.0 on five real modules, identical findings</span></div>
       <div class="stat"><b>×0.41–0.44</b><span>CPU time with the tuned JVM, identical diagnostics</span></div>
     </div>
   </div>
@@ -170,13 +170,14 @@ footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--line)
       <p class="note">Engine: OneScript 2.2.0-vanteam.2, <code>oscript -checkall</code>. One engine start for all files and every error of a module: syntax, wrong argument count, a procedure used as a function, a duplicate method with its line. Unknown 1C names are listed, not errors. Code under <code>#Если Сервер</code> is checked through a copy without directive lines.</p>
       <p class="note">76 modules of a 1C configuration: 2.4 s in one run against 50–80 s with <code>oscript -check</code> per file; 116 of 116 real modules checked to the end.</p>
       <div class="links"><a href="https://github.com/ivanbokhan84/OneScript">Fork ivanbokhan84/OneScript</a><a href="https://ivanbokhan84.github.io/OneScript/">Measurements</a></div></div>
-    <div class="card"><h3>2. BSL Language Server — <code>tools/check_bsl.py --deep</code></h3>
-      <p class="note">Engine: BSL Language Server 0.29.0 (1.0.7 in the 1.1.0 release candidate), <code>--analyze</code>: cognitive complexity, deprecated methods, unused variables, cross-module calls. Exit code 3 when the analysis did not happen.</p>
-      <p class="note">The Vanteam fork of BSL Language Server 1.0.7, release v1.0.7-vanteam.1, keeps the parsed platform syntax helper in a persistent cache and checks only the target module (<code>--target</code>): one module 7 s against 24 s with the upstream 1.0.7 JAR, identical findings. Release candidate 2.0.0-rc.1 runs it through VANTEAM BSL Server check 1.0.1: BSL LS only, several modules in one JVM, the engine installed once per machine.</p>
-      <div class="links"><a href="https://github.com/ivanbokhan84/bsl-language-server">Fork ivanbokhan84/bsl-language-server</a><a href="https://github.com/ivanbokhan84/vanteam-bsl-check/releases/tag/v2.0.0-rc.1">Release 2.0.0-rc.1</a></div></div>
+    <div class="card"><h3>2. BSL Language Server — <code>tools/check_bsl.py</code></h3>
+      <p class="note">Checker: VANTEAM BSL Server check 1.0.1, copied unchanged from its release. Engine: the Vanteam fork of BSL Language Server 1.0.7, release v1.0.7-vanteam.1, <code>--analyze</code>: cognitive complexity, deprecated methods, unused variables, cross-module calls. BSL LS only; exit code 3 when the analysis did not happen.</p>
+      <p class="note">The fork keeps the parsed platform syntax helper in a persistent cache and checks only the target modules (<code>--target</code>); several modules of a directory go to one JVM. <code>tools/setup_bsl_server.py</code> installs the engine once per machine with an AppCDS archive. Against 1.1.0 on five real modules: identical findings, wall time ×0.17–0.38.</p>
+      <div class="links"><a href="https://github.com/ivanbokhan84/bsl-language-server">Fork ivanbokhan84/bsl-language-server</a><a href="https://github.com/ivanbokhan84/vanteam-bsl-check/releases/tag/v2.0.0">Release 2.0.0</a></div></div>
   </div>
-  <pre class="block">python tools/check_oscript.py path/to/Module.bsl          # 1. OneScript
-python tools/check_bsl.py path/to/Module.bsl --deep       # 2. BSL Language Server</pre>
+  <pre class="block">python tools/setup_bsl_server.py                          # once per machine: BSL LS engine
+python tools/check_oscript.py path/to/Module.bsl          # 1. OneScript
+python tools/check_bsl.py path/to/Module.bsl              # 2. BSL Language Server</pre>
 </section>
 
 <section>

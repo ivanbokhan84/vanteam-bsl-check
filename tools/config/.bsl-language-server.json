@@ -1,0 +1,49 @@
+{
+  "$schema": "https://1c-syntax.github.io/bsl-language-server/configuration/schema.json",
+  "language": "ru",
+  "configurationRoot": ".",
+  "diagnostics": {
+    "computeTrigger": "onSave",
+    "skipSupport": "never",
+    "parameters": {
+      "DeprecatedFind": {
+        "enabled": true
+      },
+      "CognitiveComplexity": {
+        "complexityThreshold": 15
+      },
+      "CyclomaticComplexity": {
+        "complexityThreshold": 20
+      },
+      "LineLength": {
+        "maxLineLength": 120
+      },
+      "MethodSize": {
+        "maxMethodSize": 200
+      },
+      "ProcedureReturnsValue": {
+        "enabled": true
+      },
+      "FunctionShouldHaveReturn": {
+        "enabled": true
+      },
+      "MissingTemporaryFileDeletion": {
+        "enabled": true
+      },
+      "UsingServiceTag": false,
+      "Typo": false,
+      "LatinAndCyrillicSymbolInWord": {
+        "enabled": true
+      },
+      "IdenticalExpressions": {
+        "enabled": true
+      },
+      "UnusedLocalVariable": {
+        "enabled": true
+      },
+      "UnusedParameters": {
+        "enabled": true
+      }
+    }
+  }
+}

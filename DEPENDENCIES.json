@@ -1,14 +1,19 @@
 {
   "bsl_ls": {
-    "version": "0.29.0",
+    "version": "1.0.7-vanteam.1",
     "license": "LGPL-3.0-or-later",
     "upstream": "https://github.com/1c-syntax/bsl-language-server",
-    "url": "https://github.com/1c-syntax/bsl-language-server/releases/download/v0.29.0/bsl-language-server-0.29.0-exec.jar",
-    "sha256": "d6fa9ad638ba51855e260b88ad1f8ce4e602385845a4ee43600d148f779bcf0b",
-    "size": 115215320,
-    "path": "tools/bsl_ls/bsl-language-server-0.29.0-exec.jar",
-    "modified": false,
-    "java_minimum": 21
+    "fork": "https://github.com/ivanbokhan84/bsl-language-server",
+    "tag": "v1.0.7-vanteam.1",
+    "base": "1.0.7 (commit f377f95aefa16a4cf0e4d9af5b1c83800366bebc)",
+    "url": "https://github.com/ivanbokhan84/bsl-language-server/releases/download/v1.0.7-vanteam.1/bsl-language-server-1.0.7-vanteam.1-exec.jar",
+    "sha256": "0b75fa1235513d970a4125f172dd4515e82b8f30a3f80836991f530ef02c205b",
+    "size": 130710342,
+    "path": "tools/bsl_ls/bsl-language-server-1.0.7-vanteam.1-exec.jar",
+    "modified": true,
+    "changes": "persistent platform-context cache (app.platform-context.cache.path), --target for --analyze; findings equal to upstream 1.0.7",
+    "java_minimum": 21,
+    "installed_by": "tools/setup_bsl_server.py (VANTEAM BSL Server check 1.0.1) into VANTEAM_BSL_HOME; the path above is used only with BSL_LS_JAR"
   },
   "jdk": {
     "version": "Temurin 21.0.11+10",
@@ -31,5 +36,12 @@
     "path": "%LOCALAPPDATA%/Programs/OneScript-2.2.0-vanteam.2/bin/oscript.exe or VANTEAM_OSCRIPT",
     "note": "Built separately from the fork, binaries are not published. The legacy level of check_bsl.py (oscript -check, tested with 1.9.4) uses the installed OneScript from C:/Program Files/OneScript or PATH."
   },
-  "python_minimum": "3.10"
+  "python_minimum": "3.10",
+  "platform_context": "BSL LS 1.0.7 reads the syntax helper of the newest installed 1C:Enterprise platform; without 1C it uses built-in descriptions. Tested with 8.3.27.",
+  "bsl_server_check": {
+    "version": "1.0.1",
+    "source": "https://github.com/ivanbokhan84/bsl-language-server/releases/download/v1.0.7-vanteam.1/vanteam-bsl-server-check-1.0.1.zip",
+    "sha256": "1c61c22e6f50e5e5a886d528c4425dbb9a73d8566c008331b3e328990f8e7d2b",
+    "files": "docs/bsl-server-check/SOURCE.json"
+  }
 }

@@ -1,41 +1,45 @@
 # -*- coding: utf-8 -*-
 """Новые находки BSL Language Server в модуле относительно версии из git (по умолчанию HEAD).
 
-Большие модули несут сотни старых предупреждений; правило проекта - 0 ERROR и 0 НОВЫХ WARN в
-затронутом модуле. Скрипт прогоняет tools/check_bsl.py --all по текущему файлу и --deep по его
-версии из git, сравнивает находки по ключу (уровень, правило, сообщение, текст строки без отступов)
-как мультимножества и печатает только появившиеся. Уровень HINT не выводится.
+Только BSL LS: OneScript здесь не вызывается (синтаксис OneScript - отдельно, tools/check_oscript.py).
+Ядро - check_bsl.analyze из того же каталога: та же установка, область, защиты и коды неполной проверки.
 
-Контекст базы: область check_bsl по умолчанию - файлы .bsl/.os каталога цели, поэтому база
-собирается из файлов того же каталога в ревизии (с теми же фильтрами git, что при checkout).
-Базовый прогон пропускается только если набор и байты всех этих файлов совпадают с рабочим деревом.
+Большие модули несут сотни старых предупреждений; правило проекта - 0 ERROR и 0 НОВЫХ WARN в
+затронутом модуле. Скрипт проверяет текущий файл и его версию из git в той же области анализа,
+сравнивает находки по ключу (уровень, правило, сообщение, текст строки без отступов) как мультимножества
+и печатает только появившиеся. Уровень HINT не выводится.
+
+База - все файлы области анализа в ревизии, байты как при checkout (git cat-file --filters: autocrlf, фильтры):
+  по умолчанию - файлы .bsl/.os каталога модуля (область check_bsl по умолчанию);
+  --source-dir DIR - все файлы каталога рекурсивно: модули и метаданные выгрузки;
+  --standalone - только сам модуль.
+Базовый прогон пропускается только если набор и байты всех файлов области совпадают с рабочим деревом.
 Файла нет в ревизии - база пустая, все находки новые.
 
-oscript -check выполняется только для текущей версии: standalone, без метаданных, до первой ошибки.
-Его результат печатается отдельно. «Неизвестный символ» без подтверждения происхождения означает
-неполную проверку (код 2), а не успешный результат; прочая ошибка - ERROR.
+Код возврата: 0 - нет новых ERROR/WARN и ERROR в модуле; 1 - есть новые ERROR/WARN или ERROR в модуле;
+2 - проверка не выполнена (проверка BSL LS неполная, сбой git, неверные аргументы).
 
-Код возврата: 0 - нет новых ERROR/WARN и ERROR в модуле; 1 - есть новые ERROR/WARN, ERROR в модуле
-или ошибка oscript кроме «Неизвестный символ»; 2 - проверка не выполнена (сбой check_bsl или git,
-нет итога, число разобранных находок не совпало с итогом).
-
-Запуск из корня проекта: python tools/bsl_new_findings.py <путь Module.bsl> [ревизия]
+Запуск из корня проекта:
+  python tools/bsl_new_findings.py <путь Module.bsl> [ревизия] [--source-dir DIR | --standalone]
 """
+import argparse
 import collections
 import os
-import re
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePosixPath
 
 ИНСТРУМЕНТЫ = Path(__file__).resolve().parent
-ПРОВЕРКА = ИНСТРУМЕНТЫ / 'check_bsl.py'
-ВРЕМЕННЫЕ = ИНСТРУМЕНТЫ.parent / '_temp'
-РАСШИРЕНИЯ = ('.bsl', '.os')
-ШАБЛОН = re.compile(r'^\s+(ERROR|WARN|INFO|HINT)\s+L(\d+)\s+(\w+): (.*)$')
-ИТОГ = re.compile(r'^\s+Findings: (\d+)\s*$')
-СТРОКА_OSCRIPT = re.compile(r'^\s+\| (.*)$')
+sys.path.insert(0, str(ИНСТРУМЕНТЫ))
+import check_bsl  # noqa: E402
+
+# Каталог временной базы; None - временный каталог установки BSL Server (tmp), на её диске.
+ВРЕМЕННЫЕ = None
+РАСШИРЕНИЯ = check_bsl.SOURCE_SUFFIXES
+УРОВНИ = {'Error': 'ERROR', 'Warning': 'WARN', 'Information': 'INFO', 'Hint': 'HINT'}
+ПОТОКИ_GIT = 8
 
 
 class СбойПроверки(RuntimeError):
@@ -50,101 +54,141 @@ def git(корень, *аргументы):
     return рез.stdout
 
 
-def файлы_каталога(каталог):
-    return {п.name: п.read_bytes() for п in каталог.iterdir()
-            if п.is_file() and п.suffix.lower() in РАСШИРЕНИЯ}
+def область(путь, source_dir, standalone):
+    """(каталог области, режим): 'каталог' - .bsl/.os каталога, 'рекурсивно' - все файлы, 'файл' - только модуль."""
+    if standalone:
+        return путь.parent, 'файл'
+    if source_dir:
+        каталог = Path(source_dir).resolve()
+        if not каталог.is_dir() or not путь.is_relative_to(каталог):
+            raise СбойПроверки('Модуль вне области --source-dir %s: %s' % (каталог, путь))
+        return каталог, 'рекурсивно'
+    return путь.parent, 'каталог'
 
 
-def файлы_ревизии(корень, ревизия, каталог):
-    """Файлы .bsl/.os каталога в ревизии; байты как при checkout (autocrlf, фильтры)."""
-    путь_каталога = [] if каталог == '.' else [каталог + '/']
+def входит(относительный, режим, имя_модуля):
+    if режим == 'файл':
+        return относительный == имя_модуля
+    if режим == 'каталог':
+        return '/' not in относительный and PurePosixPath(относительный).suffix.lower() in РАСШИРЕНИЯ
+    return True
+
+
+def файлы_каталога(каталог, режим, имя_модуля):
+    """Файлы области в рабочем дереве: {путь относительно области (posix): байты}."""
+    обход = каталог.rglob('*') if режим == 'рекурсивно' else каталог.iterdir()
     итог = {}
-    for запись in git(корень, 'ls-tree', '-z', ревизия, '--', *путь_каталога).split(b'\0'):
-        if not запись:
-            continue
-        заголовок, путь = запись.decode('utf-8').split('\t', 1)
-        if заголовок.split()[1] == 'blob' and PurePosixPath(путь).suffix.lower() in РАСШИРЕНИЯ:
-            итог[PurePosixPath(путь).name] = git(корень, 'cat-file', '--filters',
-                                                  '%s:%s' % (ревизия, путь))
+    for п in обход:
+        отн = п.relative_to(каталог).as_posix()
+        if п.is_file() and входит(отн, режим, имя_модуля):
+            итог[отн] = п.read_bytes()
     return итог
 
 
-def разобрать_вывод(вывод, путь):
-    """(находки BSL LS без HINT, строки первой ошибки oscript) из вывода check_bsl."""
-    строки = Path(путь).read_text(encoding='utf-8-sig').split('\n')
-    находки, oscript = [], []
-    итог, разобрано, внутри_oscript = None, 0, False
-    for стр in вывод.split('\n'):
-        if 'ОШИБКИ синтаксиса:' in стр:
-            внутри_oscript = True
+def файлы_ревизии(корень, ревизия, каталог, режим, имя_модуля):
+    """Файлы области в ревизии; байты как при checkout (autocrlf, фильтры)."""
+    путь_каталога = [] if каталог == '.' else [каталог + '/']
+    ключи = ['-r'] if режим == 'рекурсивно' else []
+    пути = {}
+    for запись in git(корень, 'ls-tree', '-z', *ключи, ревизия, '--', *путь_каталога).split(b'\0'):
+        if not запись:
             continue
-        m = СТРОКА_OSCRIPT.match(стр)
-        if внутри_oscript and m:
-            oscript.append(m.group(1))
+        заголовок, путь = запись.decode('utf-8').split('\t', 1)
+        отн = путь[len(каталог) + 1:] if каталог != '.' else путь
+        if заголовок.split()[1] == 'blob' and входит(отн, режим, имя_модуля):
+            пути[отн] = путь
+    # Пакетный cat-file --batch --filters пишет в заголовке размер до фильтра - разбор по нему ненадёжен,
+    # поэтому по одному процессу на файл, параллельно.
+    with ThreadPoolExecutor(max_workers=ПОТОКИ_GIT) as пул:
+        байты = пул.map(lambda путь: git(корень, 'cat-file', '--filters', '%s:%s' % (ревизия, путь)),
+                        пути.values())
+        return dict(zip(пути, байты))
+
+
+def проверить(путь, source_dir=None, standalone=False):
+    """Находки BSL LS без HINT: [(уровень, правило, сообщение, текст строки, номер)]; неполная - СбойПроверки."""
+    вывод = check_bsl.Output(collect=True)
+    итог = check_bsl.analyze([str(путь)], source_dir=source_dir, standalone=standalone, out=вывод)
+    модули = итог['modules']
+    if len(модули) != 1 or модули[0]['incomplete'] or итог['exit_code'] not in (0, 1, 2):
+        причина = модули[0].get('error') if модули else 'нет результата'
+        raise СбойПроверки('check_bsl не выполнил проверку %s: %s\n%s' % (
+            путь, причина, '\n'.join(вывод.messages)[-3000:]))
+    строки = Path(путь).read_text(encoding='utf-8-sig', errors='replace').split('\n')
+    находки = []
+    for н in модули[0]['findings']:
+        уровень = УРОВНИ[н['severity']]
+        if уровень == 'HINT':
             continue
-        внутри_oscript = False
-        if 'OK: 0 findings.' in стр:
-            итог = 0
-        m = ИТОГ.match(стр)
-        if m:
-            итог = int(m.group(1))
-        m = ШАБЛОН.match(стр)
-        if not m:
-            continue
-        разобрано += 1
-        if m.group(1) == 'HINT':
-            continue
-        номер = int(m.group(2))
+        номер = н['line'] or 0
         текст = строки[номер - 1].strip() if 0 < номер <= len(строки) else ''
-        находки.append((m.group(1), m.group(3), m.group(4).strip(), текст, номер))
-    if итог is None or итог != разобрано:
-        raise СбойПроверки('Итог BSL LS не совпал с разобранными находками: итог %s, разобрано %d'
-                           % (итог, разобрано))
-    return находки, oscript
-
-
-def проверить(путь, уровень):
-    среда = dict(os.environ, PYTHONIOENCODING='utf-8')
-    рез = subprocess.run([sys.executable, str(ПРОВЕРКА), str(путь), уровень],
-                         capture_output=True, env=среда)
-    вывод = re.sub(r'\x1b\[[0-9;]*m', '', рез.stdout.decode('utf-8', 'replace'))
-    # 0/1/2 - проверка выполнена (2 - найдены ошибки в коде); 3 и прочее - не выполнена.
-    if рез.returncode not in (0, 1, 2) or '=== РЕЗУЛЬТАТ:' not in вывод:
-        raise СбойПроверки('check_bsl не выполнил проверку (код %d):\n%s%s' % (
-            рез.returncode, вывод[-2000:], рез.stderr.decode('utf-8', 'replace')[-1000:]))
-    return разобрать_вывод(вывод, путь)
-
-
-def базовые_находки(путь, корень, ревизия, стало):
-    каталог = путь.parent.relative_to(корень).as_posix()
-    база = файлы_ревизии(корень, ревизия, каталог)
-    if путь.name not in база:
-        print('В ревизии %s файла нет: база пустая, все находки новые.' % ревизия)
-        return []
-    if база == файлы_каталога(путь.parent):
-        print('Каталог цели совпадает с ревизией %s: базовый прогон не нужен.' % ревизия)
-        return стало
-    ВРЕМЕННЫЕ.mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='bslbase_', dir=ВРЕМЕННЫЕ) as временный:
-        for имя, байты in база.items():
-            (Path(временный) / имя).write_bytes(байты)
-        находки, _ = проверить(Path(временный) / путь.name, '--deep')
+        находки.append((уровень, н['code'], н['message'], текст, номер))
     return находки
 
 
-def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        return 2
-    путь = Path(sys.argv[1]).resolve()
-    ревизия = sys.argv[2] if len(sys.argv) > 2 else 'HEAD'
+def временный_корень():
+    корень = Path(ВРЕМЕННЫЕ) if ВРЕМЕННЫЕ else check_bsl.install_home() / 'tmp'
+    корень.mkdir(parents=True, exist_ok=True)
+    return корень
+
+
+def базовые_находки(путь, корень, ревизия, стало, source_dir=None, standalone=False):
+    каталог, режим = область(путь, source_dir, standalone)
+    отн_каталог = каталог.relative_to(корень).as_posix()
+    отн_модуль = путь.relative_to(каталог).as_posix()
+    база = файлы_ревизии(корень, ревизия, отн_каталог, режим, путь.name)
+    if отн_модуль not in база:
+        print('В ревизии %s файла нет: база пустая, все находки новые.' % ревизия)
+        return []
+    if база == файлы_каталога(каталог, режим, путь.name):
+        print('Область совпадает с ревизией %s: базовый прогон не нужен.' % ревизия)
+        return стало
+    print('База: ревизия %s, файлов области: %d' % (ревизия, len(база)))
+    with tempfile.TemporaryDirectory(prefix='bslbase_', dir=временный_корень(),
+                                     ignore_cleanup_errors=True) as временный:
+        for отн, байты in база.items():
+            файл = Path(временный) / отн
+            файл.parent.mkdir(parents=True, exist_ok=True)
+            файл.write_bytes(байты)
+        return проверить(Path(временный) / отн_модуль, временный if режим == 'рекурсивно' else None,
+                         режим == 'файл')
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        print('%s: ошибка: %s' % (self.prog, message), file=sys.stderr)
+        sys.exit(2)
+
+
+def main(argv=None):
+    parser = Parser(prog='bsl_new_findings.py', description='Новые находки BSL LS относительно ревизии git')
+    parser.add_argument('module', help='путь к модулю .bsl/.os')
+    parser.add_argument('revision', nargs='?', default='HEAD', help='ревизия git, по умолчанию HEAD')
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument('--source-dir', help='явный каталог контекста BSL LS (как у check_bsl.py)')
+    scope.add_argument('--standalone', action='store_true', help='только сам модуль')
+    args = parser.parse_args(argv)
+    for поток in (sys.stdout, sys.stderr):
+        try:
+            поток.reconfigure(errors='replace')
+        except (AttributeError, ValueError):
+            pass
+    путь = Path(args.module).resolve()
+    ревизия = args.revision
     try:
+        if not путь.is_file():
+            raise СбойПроверки('файл не найден: %s' % путь)
         корень = Path(git(путь.parent, 'rev-parse', '--show-toplevel').decode('utf-8').strip()).resolve()
         git(корень, 'rev-parse', '--verify', '--quiet', ревизия + '^{commit}')
-        стало, oscript = проверить(путь, '--all')
-        было = collections.Counter(н[:4] for н in базовые_находки(путь, корень, ревизия, стало))
+        if args.source_dir and not Path(args.source_dir).resolve().is_relative_to(корень):
+            raise СбойПроверки('--source-dir вне репозитория %s' % корень)
+        стало = проверить(путь, args.source_dir, args.standalone)
+        было = collections.Counter(н[:4] for н in базовые_находки(путь, корень, ревизия, стало,
+                                                                   args.source_dir, args.standalone))
     except (OSError, ValueError, UnicodeDecodeError, СбойПроверки) as ошибка:
         print(ошибка)
+        print('== проверка не выполнена')
         return 2
     новые = []
     for н in стало:
@@ -155,24 +199,11 @@ def main():
             новые.append(н)
     for уровень, правило, сообщение, _, номер in sorted(новые, key=lambda х: х[4]):
         print('НОВОЕ %-5s L%-5d %s: %s' % (уровень, номер, правило, сообщение))
-    ошибка_oscript = False
-    неполная_oscript = False
-    if oscript:
-        первая = ' / '.join(oscript)
-        if 'Неизвестный символ' in первая:
-            print('oscript (standalone, до первой ошибки): %s - происхождение символа не подтверждено, '
-                  'синтаксис после этой строки не проверен; проверка не выполнена полностью' % первая)
-            неполная_oscript = True
-        else:
-            print('oscript ERROR: %s' % первая)
-            ошибка_oscript = True
     серьёзных = sum(1 for н in новые if н[0] in ('ERROR', 'WARN'))
     ошибок = sum(1 for н in стало if н[0] == 'ERROR')
-    print('== новых ERROR/WARN: %d, новых INFO: %d, ERROR всего в модуле: %d, ошибка oscript: %s' % (
-        серьёзных, len(новые) - серьёзных, ошибок, 'да' if ошибка_oscript else 'нет'))
-    if неполная_oscript:
-        return 2
-    return 1 if серьёзных or ошибок or ошибка_oscript else 0
+    print('== новых ERROR/WARN: %d, новых INFO: %d, ERROR всего в модуле: %d' % (
+        серьёзных, len(новые) - серьёзных, ошибок))
+    return 1 if серьёзных or ошибок else 0
 
 
 if __name__ == '__main__':

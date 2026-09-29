@@ -1,8 +1,9 @@
 # BSL Language Server files
 
-* `.bsl-language-server.json` — the diagnostics configuration used by `check_bsl.py`.
+* `.bsl-language-server.json` — the project diagnostics configuration used by `check_bsl.py` (the checker default is `../config/.bsl-language-server.json`).
 * `bsl-language-server-<version>-exec.jar` — the engine, restored by `scripts/fetch_dependencies.py`, not stored in Git. The version and SHA-256 are pinned in `../../DEPENDENCIES.json`.
 * `_tmp/` — temporary files of analysis runs, safe to delete.
+* Since 2.0.0 the engine itself, its AppCDS archive and cache live in the installation made by `tools/setup_bsl_server.py` (`VANTEAM_BSL_HOME`); a JAR here is used only through `BSL_LS_JAR`.
 
 The configuration keeps the project rules. `Typo` and `UsingServiceTag` are disabled with a boolean `false`: with the object form `{"enabled": false}` BSL Language Server keeps the rule on.
 
