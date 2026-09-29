@@ -21,6 +21,9 @@ Release candidate. The BSL Language Server level is now VANTEAM BSL Server check
 ### Removed
 - `scripts/prepare_cds.py` and the own fork support of 1.2.0-rc.1 in `check_bsl.py`: `setup_bsl_server.py` and the bundled checker do it.
 
+### Known issues
+- `test_integration.RealEngineTests.test_no_oscript_is_started` fails when the path of the checkout contains `oscript` (for example `C:\Projects\Vanteam-BSL-OScript\...`): it searches the whole Java command line, which carries the project path. No OneScript process is started — the command is Java and the marker file is not created; from a path without `oscript` the test passes. Reported to the BSL Server project; the bundled files stay unchanged until its next release.
+
 ## [1.2.0-rc.1] - 2026-09-29
 
 Release candidate. Engines: BSL Language Server fork [1.0.7-vanteam.1](https://github.com/ivanbokhan84/bsl-language-server/releases/tag/v1.0.7-vanteam.1) and OneScript fork [2.2.0-vanteam.2](https://github.com/ivanbokhan84/OneScript/tree/v2.2.0-vanteam.2). Includes the changes of 1.1.0-rc.1. Independent review pending.

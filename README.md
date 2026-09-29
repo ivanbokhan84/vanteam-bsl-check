@@ -150,7 +150,7 @@ python -m unittest tools/tests/test_check_bsl.py tools/tests/test_integration.py
 * `test_check_oscript.py` — 8 tests: 19 modules with known error lines in `tools/tests/fixtures/oscript_quality`, code under `#Если Сервер`, same-named methods in two branches, an unclosed `#Если`, a duplicate method line, a typo in the manual-check list, a missing engine. Seven need OneScript 2.2.0-vanteam.2.
 * `test_check_bsl.py` and `test_integration.py` — the tests of VANTEAM BSL Server check 1.0.0: 81 unit tests and 19 integration tests on real Java 21 and the fork JAR.
 
-Tests that need an engine are skipped when it is missing. A skipped integration test is not a pass.
+Tests that need an engine are skipped when it is missing. A skipped integration test is not a pass. Run the BSL Server tests from a checkout whose path does not contain `oscript`: `test_no_oscript_is_started` looks for that word in the whole Java command line (see [CHANGELOG.md](CHANGELOG.md), known issues).
 
 ## Repository layout
 
