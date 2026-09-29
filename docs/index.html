@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vanteam BSL Check</title>
-<meta name="description" content="A two-level checker for 1C:Enterprise (BSL) modules: OneScript syntax pass and BSL Language Server analysis, with exit codes you can trust.">
+<meta name="description" content="Two separate checks for 1C:Enterprise (BSL) modules: OneScript 2.2.0-vanteam.2 (-checkall) and BSL Language Server, each from its own fork, with exit codes you can trust.">
 <meta property="og:title" content="Vanteam BSL Check">
-<meta property="og:description" content="A two-level checker for 1C:Enterprise (BSL) modules: OneScript syntax pass and BSL Language Server analysis, with exit codes you can trust.">
+<meta property="og:description" content="Two separate checks for 1C:Enterprise (BSL) modules: OneScript 2.2.0-vanteam.2 (-checkall) and BSL Language Server, each from its own fork, with exit codes you can trust.">
 <meta property="og:image" content="https://ivanbokhan84.github.io/vanteam-bsl-check/cover.png">
 <meta property="og:url" content="https://ivanbokhan84.github.io/vanteam-bsl-check/">
 <meta name="twitter:card" content="summary_large_image">
@@ -141,9 +141,9 @@ footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--line)
 <header class="hero" id="cover">
   <div class="left">
     <div>
-      <div class="kicker">Python · MIT · OneScript + BSL Language Server</div>
+      <div class="kicker">Python · MIT · two checks · two forks</div>
       <h1>Vanteam BSL Check</h1>
-      <p class="tag">A two-level checker for 1C:Enterprise modules that never reports success for an analysis that did not happen.</p>
+      <p class="tag">Two separate checks for 1C:Enterprise modules — OneScript and BSL Language Server — that never report success for an analysis that did not happen.</p>
     </div>
     <div class="chips">
       <span class="chip"><b>0</b>clean</span><span class="chip"><b>1</b>warnings</span><span class="chip"><b>2</b>errors</span><span class="chip"><b>3</b>not completed</span>
@@ -161,6 +161,23 @@ footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--line)
   </div>
 </header>
 <main class="page">
+
+<section>
+  <div class="head"><div class="eyebrow">Two checks, two forks</div><h2 class="t">One command per engine</h2>
+  <p>Each engine has its own fork with the changes the checks rely on. This repository holds the wrappers and ties the two together; run both after every change to a module.</p></div>
+  <div class="grid2">
+    <div class="card"><h3>1. OneScript — <code>tools/check_oscript.py</code></h3>
+      <p class="note">Engine: OneScript 2.2.0-vanteam.2, <code>oscript -checkall</code>. One engine start for all files and every error of a module: syntax, wrong argument count, a procedure used as a function, a duplicate method with its line. Unknown 1C names are listed, not errors. Code under <code>#Если Сервер</code> is checked through a copy without directive lines.</p>
+      <p class="note">76 modules of a 1C configuration: 2.4 s in one run against 50–80 s with <code>oscript -check</code> per file; 116 of 116 real modules checked to the end.</p>
+      <div class="links"><a href="https://github.com/ivanbokhan84/OneScript">Fork ivanbokhan84/OneScript</a><a href="https://ivanbokhan84.github.io/OneScript/">Measurements</a></div></div>
+    <div class="card"><h3>2. BSL Language Server — <code>tools/check_bsl.py --deep</code></h3>
+      <p class="note">Engine: BSL Language Server 0.29.0 (1.0.7 in the 1.1.0 release candidate), <code>--analyze</code>: cognitive complexity, deprecated methods, unused variables, cross-module calls. Exit code 3 when the analysis did not happen.</p>
+      <p class="note">The Vanteam fork of BSL Language Server 1.0.7 (persistent platform-context cache, own diagnostics) is at an early stage with no releases yet, so the wrapper uses the upstream JAR.</p>
+      <div class="links"><a href="https://github.com/ivanbokhan84/bsl-language-server">Fork ivanbokhan84/bsl-language-server</a></div></div>
+  </div>
+  <pre class="block">python tools/check_oscript.py path/to/Module.bsl          # 1. OneScript
+python tools/check_bsl.py path/to/Module.bsl --deep       # 2. BSL Language Server</pre>
+</section>
 
 <section>
   <div class="head"><div class="eyebrow">How it decides</div><h2 class="t">Exit code 3 is a first-class result</h2>
@@ -235,17 +252,19 @@ footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--line)
   <pre class="block">git clone https://github.com/ivanbokhan84/vanteam-bsl-check.git
 cd vanteam-bsl-check
 python scripts/fetch_dependencies.py          # BSL LS JAR, SHA-256 verified
-python tools/check_bsl.py path/to/Module.bsl --all
+python tools/check_oscript.py path/to/Module.bsl          # needs OneScript 2.2.0-vanteam.2 from the fork
+python tools/check_bsl.py path/to/Module.bsl --deep
 python tools/bsl_new_findings.py path/to/Module.bsl</pre>
   <div class="links">
     <a href="https://github.com/ivanbokhan84/vanteam-bsl-check">Repository</a>
     <a href="https://github.com/ivanbokhan84/vanteam-bsl-check/releases">Releases</a>
-    <a href="https://github.com/ivanbokhan84/OneScript">OneScript preprocessor fix</a>
-    <a href="https://github.com/1c-syntax/bsl-language-server">BSL Language Server</a>
+    <a href="https://github.com/ivanbokhan84/OneScript">OneScript fork: -checkall</a>
+    <a href="https://github.com/ivanbokhan84/bsl-language-server">BSL Language Server fork</a>
+    <a href="https://github.com/1c-syntax/bsl-language-server">BSL Language Server upstream</a>
   </div>
 </section>
 
-<footer>MIT license. Maintained by Ivan Bokhan. BSL Language Server by the 1c-syntax community (LGPL-3.0), OneScript by EvilBeaver and the OneScript contributors (MPL-2.0); neither is bundled. Measurements: 28 September 2026.</footer>
+<footer>MIT license. Maintained by Ivan Bokhan. BSL Language Server by the 1c-syntax community (LGPL-3.0), OneScript by EvilBeaver and the OneScript contributors (MPL-2.0); neither is bundled. Measurements: 28–29 September 2026.</footer>
 
 </main>
 </body>

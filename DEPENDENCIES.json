@@ -22,10 +22,14 @@
     "note": "Portable JDK for Windows x64. Any Java 21+ on PATH works as well."
   },
   "oscript": {
-    "tested": "1.9.4",
+    "version": "2.2.0-vanteam.2",
     "license": "MPL-2.0",
     "upstream": "https://github.com/EvilBeaver/OneScript",
-    "note": "Installed separately. OneScript 2.2.0 misreads '#' inside strings of inactive #If branches; use 1.9.4 or the patched build from https://github.com/ivanbokhan84/OneScript."
+    "fork": "https://github.com/ivanbokhan84/OneScript",
+    "tag": "v2.2.0-vanteam.2",
+    "used_by": "tools/check_oscript.py (oscript -checkall)",
+    "path": "%LOCALAPPDATA%/Programs/OneScript-2.2.0-vanteam.2/bin/oscript.exe or VANTEAM_OSCRIPT",
+    "note": "Built separately from the fork, binaries are not published. The legacy level of check_bsl.py (oscript -check, tested with 1.9.4) uses the installed OneScript from C:/Program Files/OneScript or PATH."
   },
   "python_minimum": "3.10"
 }

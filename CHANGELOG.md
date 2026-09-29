@@ -5,6 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/). The wrapper
 version is independent of the BSL Language Server version.
 
+## [Unreleased]
+
+The OneScript level is a separate command now; each engine has its own fork.
+
+### Added
+- `check_oscript.py`: level 1 on OneScript 2.2.0-vanteam.2 (`oscript -checkall`, fork [ivanbokhan84/OneScript](https://github.com/ivanbokhan84/OneScript), tag `v2.2.0-vanteam.2`). One engine start for all files, every error of a module, unknown 1C names listed instead of stopping the check; a copy without directive lines for modules with `#Если`, so code under `#Если Сервер` is checked; the line of a duplicate method; a list of unknown names outside the 1C context for manual review. Exit codes `0`/`1`/`2`/`3`.
+- `test_check_oscript.py`: 8 tests and 19 fixture modules with known error lines.
+- README and project page: links to both forks — [ivanbokhan84/OneScript](https://github.com/ivanbokhan84/OneScript) and [ivanbokhan84/bsl-language-server](https://github.com/ivanbokhan84/bsl-language-server).
+
+### Changed
+- Recommended usage: `check_oscript.py` for level 1 and `check_bsl.py --deep` for level 2. `check_bsl.py` without `--deep` and with `--all` still runs the legacy `oscript -check` level, unchanged.
+- `DEPENDENCIES.json`: OneScript 2.2.0-vanteam.2 from the fork.
+
 ## [1.0.0] - 2026-09-28
 
 First public release. Engine: BSL Language Server 0.29.0, unmodified.
